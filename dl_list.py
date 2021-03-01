@@ -1,5 +1,3 @@
-
-#
 import os
 import threading 
 from watchdog.observers import Observer
@@ -9,7 +7,11 @@ import time
 import os 
 import pprint
 import datetime
+import pickle 
+
 DoubleLinkedThing = {}
+#pickled lists for each map
+mapname = "8ab"
 
 sof_log_dir = os.getcwd()
 sof_log_seek = os.path.join(sof_log_dir,"sof_seek.log")
@@ -56,13 +58,16 @@ def on_modified(event):
                     "name":data[2],
                     "time":data[3],
                     "pb":data[4],
-                    "rank":data[5],
-                    "s1":data[6],
-                    "s2":data[7],
-                    "s3":data[8],
-                    "s4":data[9]
+                    "s1":data[5],
+                    "s2":data[6],
+                    "s3":data[7],
+                    "s4":data[8]
                   }
             lap_completed(dict_data)
+          if data[1] == "map_change":
+            mapname = data[2]
+            set_map(mapname)
+            #map changed
         else:
           print(f"not good {line[0:12]}")
     log_seek = os.path.getsize(event.src_path)
@@ -79,7 +84,6 @@ def lap_completed(data):
   s2 = data["s2"]
   s3 = data["s3"]
   s4 = data["s4"]
-  rank = data["rank"]
   if name not in DoubleLinkedThing:
     add_new(name,data)
   else:
@@ -92,9 +96,24 @@ def lap_completed(data):
     data_current["seen_last"] = date_now
     data_current["time"] = pb_time
     if data["pb"] == 1:
-      rank_up(name)
-      pass
+      if DoubleLinkedThing[data["name"]]["rank"] != 1:
+        rank_up(name)
+        pass
 
+#each map has a seperate list
+def set_map(mapname):
+  global DoubleLinkedThing
+  DoubleLinkedThing = {}
+  python_db = os.path.join(os.getcwd(),"python-db","mapname",mapname)
+  if os.path.isfile(python_db):
+    with open(python_db, 'rb') as f:
+      DoubleLinkedThing = pickle.load(f)
+  else:
+    create_list()
+    with open(python_db, 'wb+') as f:
+      pickle.dump(DoubleLinkedThing,f)
+
+  #load pickled list <mapname>.pickle
 def create_list():
   global DoubleLinkedThing
   APJ = {
@@ -153,6 +172,9 @@ def debug_data(data):
   for x in data:
     print(data[x])
 
+def change_map(mapname):
+  with open("sof.log", "a") as f:
+    f.write("[" f"\"\\\\surf_db\\\\\",\"map_change\",\"{mapname}\"")
 
 def do_lap(name,time,pb,s1,s2,s3,s4):
   with open("sof.log", "a") as f:
@@ -162,38 +184,14 @@ def testing():
   global DoubleLinkedThing
   pp = pprint.PrettyPrinter(indent=4)
   pp.pprint(DoubleLinkedThing)
-  do_lap("hello",600,1,100,2,2,2,2)
+  do_lap("hello",600,1,100,2,2,2)
   time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
+  do_lap("plowsof",1,1,100,2,2,2)
   time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
+  do_lap("plowsof",2,0,100,2,2,2)
   time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("hello",600,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("plowsof",1,1,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("plowsof",2,0,100,2,2,2,2)
-  time.sleep(0.1)
-  do_lap("plowsof",0,1,100,2,2,2,2)
-  time.sleep(3)
+  do_lap("plowsof",0,1,100,2,2,2)
+  #time.sleep(3)
   pp.pprint(DoubleLinkedThing)
 
 def rank_up(name):
@@ -207,6 +205,7 @@ def rank_up(name):
   compare_name = name
   initial_changes = False
   while True:
+    print("hello world")
     self_above = DoubleLinkedThing[str(compare_name)]["above"]
     if self_above == "1st":
       DoubleLinkedThing[str(name)]["below"] = DoubleLinkedThing["first"]
@@ -234,7 +233,6 @@ def rank_up(name):
           DoubleLinkedThing[str(self_below)]["above"] = str(self_above)
           DoubleLinkedThing[str(self_above)]["below"] = str(self_below)
         initial_changes = True
-
       DoubleLinkedThing[str(self_above)]["rank"] += 1
       compare_name = self_above
     else:
@@ -257,10 +255,15 @@ def rank_up(name):
 
 
 def main():
+  global DoubleLinkedThing
   global sof_log_seek
   global log_seek
+  global mapname
   size = 0
-  create_list()
+  set_map(mapname)
+  print("original list:")
+  pp = pprint.PrettyPrinter(indent=4)
+  pp.pprint(DoubleLinkedThing)
   if os.path.isfile(sof_log_seek):
     with open(sof_log_seek, "r") as f:
       size = f.readlines()[0]
@@ -275,4 +278,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-
