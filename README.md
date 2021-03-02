@@ -1,6 +1,6 @@
 output:
 
-'''
+'''   
 ]sp_sc_func_exec python_db_init   
 hello world   
 ["\\surf_db\\","total_laps","newPlayer!",20,1,3,3,3,3]   
