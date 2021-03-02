@@ -8,13 +8,16 @@ import os
 import pprint
 import datetime
 import pickle 
+from getstatus import udp_send
 
 DoubleLinkedThing = {}
 #pickled lists for each map
 mapname = "8ab"
 
-sof_log_dir = os.getcwd()
+sof_log_dir = "C:\\Users\\Human\\Desktop\\Raven\\SOF PLATINUM\\user-server"
 sof_log_seek = os.path.join(sof_log_dir,"sof_seek.log")
+
+sof_log_file = "C:\\Users\\Human\\Desktop\\Raven\\SOF PLATINUM\\user-server\\sof.log"
 log_seek = 0
 
 def start_observer():
@@ -41,8 +44,10 @@ def start_observer():
 def on_modified(event):
   global sof_log_seek
   global log_seek
+  global sof_log_file
   if "sof.log" in event.src_path:
     print("modified")
+    time.sleep(0.1)
     with open(event.src_path, "r") as f:
       f.seek(int(log_seek))
       #probably 1 line , but just in case
@@ -173,11 +178,13 @@ def debug_data(data):
     print(data[x])
 
 def change_map(mapname):
-  with open("sof.log", "a") as f:
+  global sof_log_file
+  with open(sof_log_file, "a") as f:
     f.write("[" f"\"\\\\surf_db\\\\\",\"map_change\",\"{mapname}\"")
 
 def do_lap(name,time,pb,s1,s2,s3,s4):
-  with open("sof.log", "a") as f:
+  global sof_log_file
+  with open(sof_log_file, "a") as f:
     f.write("[" f"\"\\\\surf_db\\\\\",\"total_laps\",\"{name}\",{time},{pb},{s1},{s2},{s3},{s4}" + "]\n")
 
 def testing():
@@ -191,7 +198,9 @@ def testing():
   do_lap("plowsof",2,0,100,2,2,2)
   time.sleep(0.1)
   do_lap("plowsof",0,1,100,2,2,2)
-  #time.sleep(3)
+  time.sleep(0.1)
+  set_map("[r&b]multimoto")
+  time.sleep(3)
   pp.pprint(DoubleLinkedThing)
 
 def rank_up(name):
@@ -251,9 +260,22 @@ def rank_up(name):
       break
   #we're ranked
   new_rank = DoubleLinkedThing[str(name)]["rank"]
-  print(f"{name} was ranked: {original_rank} new_rank: {new_rank}")
+  if original_rank != new_rank:
+    #print change
+    msg = [f"sp_sc_func_exec broadcast_new_rank \"{name}\" \"{new_rank}\""]
+    udp_send(msg)
+    #print(f"{name} was ranked: {original_rank} new_rank: {new_rank}")
 
-
+def save_list():
+  global DoubleLinkedThing
+  global mapname
+  python_db = os.path.join(os.getcwd(),"python-db","mapname",mapname)
+  while True:
+    time.sleep(600)
+    with open(python_db, 'wb+') as f:
+      pickle.dump(DoubleLinkedThing,f)
+    #save every 10 mins ~ temporary
+    
 def main():
   global DoubleLinkedThing
   global sof_log_seek
@@ -273,8 +295,10 @@ def main():
   log_seek = size
   x = threading.Thread(target=start_observer)
   x.start()
+  y = threading.Thread(target=save_list)
+  y.start()
   time.sleep(2)
-  testing()
+  #testing()
 
 if __name__ == '__main__':
   main()
