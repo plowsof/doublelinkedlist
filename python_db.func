@@ -89,7 +89,7 @@ function .rank(~slot)
     sp_sc_cvar_copy ~rank pydb_surf_rank_$~slot
     sset ~msg You are ranked $~rank
     say #~msg
-    set pydb_surf_spb_$pydb_slot 0
+    //set pydb_surf_spb_$pydb_slot 0
     //set pydb_surf_pb_$pydb_slot $pydb_pb
     //set pydb_surf_rank_$pydb_slot $pydb_rank
     //set pydb_surf_s1_$pydb_slot $pydb_s1
@@ -170,6 +170,7 @@ function pydb_player_join(*)
     sp_sc_flow_if number cvar ~0 == val 1
     {
         //clear touched cvars
+        sp_sc_func_exec pydb_zero_touch_times $~1
         sp_sv_info_client #~1
         set ~name #_sp_sv_info_client_name
         sp_sc_func_exec pydb_set_name #~name #~1 "pydb_player_join"
@@ -385,7 +386,7 @@ function set_section_time(~slot,~gate,~now)
     echo #~msg
 
     sp_sc_cvar_sset ~pb_s_time "pydb_surf_s" $~gate "_" $~slot
-
+    sp_sc_cvar_copy ~saved_s_time $~pb_s_time
     sp_sc_flow_if number cvar ~now < cvar $~pb_s_time
     {
       set pydb_surf_spb_$~slot 1
@@ -395,11 +396,10 @@ function set_section_time(~slot,~gate,~now)
       //sp_sc_timer 130 #~cmd
       //special noise
       sp_sc_func_exec sound_section_pb #~slot
-
-      sp_sc_cvar_math_sub ~val $~now
+      sp_sc_cvar_math_sub ~saved_s_time $~now
       //sp_sc_func_exec frames_to_seconds $~val
       //sp_sc_cvar_sset ~msg "%03-" $GLOBAL_ftos
-      sp_sc_cvar_sset ~msg "%03-" $~now
+      sp_sc_cvar_sset ~msg "%03-" $~saved_s_time
       set ~frames $~now
     }
     else
@@ -417,7 +417,7 @@ function set_section_time(~slot,~gate,~now)
         //sp_sv_player_paint #~slot 1 0 0 1
         sset ~cmd sp_sv_player_paint #~slot 1 1 1 1 
         //sp_sc_timer 130 #~cmd
-        sp_sc_cvar_math_sub ~now $~val
+        sp_sc_cvar_math_sub ~now $~saved_s_time 
         //sp_sc_func_exec frames_to_seconds $~now
         //sp_sc_cvar_sset ~msg "%02+" $GLOBAL_ftos
         sp_sc_cvar_sset ~msg "%02+" $~now
