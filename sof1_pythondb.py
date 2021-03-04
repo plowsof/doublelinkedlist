@@ -62,7 +62,7 @@ def on_modified(event):
             dict_data = {
                     "name":data[2],
                     "time":data[3],
-                    "pb":data[4],
+                    "spb":data[4],
                     "s1":data[5],
                     "s2":data[6],
                     "s3":data[7],
@@ -73,11 +73,53 @@ def on_modified(event):
             mapname = data[2]
             set_map(mapname)
             #map changed
+          if data[1] == "join":
+            print("if we exist - update last seen")
+            dict_data = {
+                    "name":data[2],
+                    "slot":data[3]
+            }
+            player_joined(dict_data)
         else:
           print(f"not good {line[0:12]}")
     log_seek = os.path.getsize(event.src_path)
     with open(sof_log_seek, "w+") as f:
       f.write(str(log_seek))
+
+def player_joined(data):
+  global DoubleLinkedThing
+  name = data["name"]
+  slot = data["slot"]
+  date_now = datetime.datetime.now().date().isoformat()
+  if name not in DoubleLinkedThing:
+    
+    #pydb_set_begin_cvars(~slot,~pb,~rank,~s1,~s2,~s3,~s4,~++,~first,~last)
+    slot = data["slot"]
+    pb = 42069
+    rank = "unranked"
+    s1 = 42069
+    s2 = 42069
+    s3 = 42069
+    s4 = 42069
+    total = 0
+    first_seen = date_now
+    last_seen = date_now
+  else:
+    DoubleLinkedThing[str[name]]["seen_last"] = date_now
+    info = DoubleLinkedThing[str[name]]
+    slot = info["slot"]
+    pb = info["pb"]
+    rank = info["rank"]
+    s1 = info["s1"]
+    s2 = info["s2"]
+    s3 = info["s3"]
+    s4 = info["s4"]
+    total = info["total"]
+    first_seen = info["seen_first"]
+    last_seen = info["seen_last"]
+  msg = [f"""sp_sc_func_exec pydb_set_begin_cvars \"{slot}\" \"{pb}\" \"{rank}\" \"{s1}\" \"{s2}\" \"{s3}\" \"{s4}\" \"{total}\" \"{first_seen}\" \"{last_seen}\""""]
+  udp_send(msg)
+
 #print(f"player {data['name']} completed the track in {data['time']} seconds. pb: {data['pb']}")
 def lap_completed(data):
   global DoubleLinkedThing
@@ -92,15 +134,17 @@ def lap_completed(data):
   if name not in DoubleLinkedThing:
     add_new(name,data)
   else:
+    #FIXME 
     data_current = DoubleLinkedThing[str(name)]
-    data_current["total"] += 1
-    data_current["s1"] = s1
-    data_current["s2"] = s2
-    data_current["s3"] = s3
-    data_current["s4"] = s4 
-    data_current["seen_last"] = date_now
-    data_current["time"] = pb_time
-    if data["pb"] == 1:
+    DoubleLinkedThing[str(name)]["total"] += 1
+    DoubleLinkedThing[str(name)]["s1"] = s1
+    DoubleLinkedThing[str(name)]["s2"] = s2
+    DoubleLinkedThing[str(name)]["s3"] = s3
+    DoubleLinkedThing[str(name)]["s4"] = s4 
+    DoubleLinkedThing[str(name)]["seen_last"] = date_now
+    DoubleLinkedThing[str(name)]["total"] += 1
+    if int(DoubleLinkedThing[str(name)]["time"]) > int(pb_time):
+      DoubleLinkedThing[str(name)]["time"] = pb_time
       if DoubleLinkedThing[data["name"]]["rank"] != 1:
         rank_up(name)
         pass
@@ -126,20 +170,20 @@ def create_list():
     "below":"OPJ",
     "above":"1st",
     "time": 100,
-    "total":1
+    "total":5
   }
-  OPJ = {
+  OP = {
     "rank": 2,
     "below":"last",
     "above":"APJ",
     "time":200,
-    "total":2
+    "total":1
   }
 
   DoubleLinkedThing["first"] = "APJ"
-  DoubleLinkedThing["last"] = "OPJ"
+  DoubleLinkedThing["last"] = "OP"
   DoubleLinkedThing["APJ"] = APJ
-  DoubleLinkedThing["OPJ"] = OPJ
+  DoubleLinkedThing["OP"] = OP
 
 def add_new(name,data):
   global DoubleLinkedThing
@@ -230,7 +274,7 @@ def rank_up(name):
     
     tmp_time = DoubleLinkedThing[str(self_above)]["time"]
     #if abovs time < than ours 
-    if DoubleLinkedThing[str(self_above)]["time"] >= original_time:        
+    if int(DoubleLinkedThing[str(self_above)]["time"]) >= int(original_time):        
       if not initial_changes:
         if self_below == "last":
           DoubleLinkedThing["last"] = self_above
@@ -272,6 +316,7 @@ def save_list():
   python_db = os.path.join(os.getcwd(),"python-db","mapname",mapname)
   while True:
     time.sleep(600)
+    #if somebody made a pb <pbwasmade>.file -> rem
     with open(python_db, 'wb+') as f:
       pickle.dump(DoubleLinkedThing,f)
     #save every 10 mins ~ temporary
@@ -295,6 +340,9 @@ def main():
   log_seek = size
   x = threading.Thread(target=start_observer)
   x.start()
+  python_db = os.path.join(os.getcwd(),"python-db","mapname")
+  if not os.path.exists(python_db):
+    os.makedirs(os.path.dirname(python_db))
   y = threading.Thread(target=save_list)
   y.start()
   time.sleep(2)
