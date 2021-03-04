@@ -1,26 +1,204 @@
+//pickled python list
+//for sof1 soudns
+//"link" -> files 
+//for x in each linke - if we dont haveany files download link
+//trigger ~ent is a random int not "1..2..3..4"
+
+
+  //sf_sv_ent_create ~ent
+  //trigger uid
+  //~uid = "global_tuid_123412414 gate1"
+  //set GLOBAL_tuid_$~ent #~tuid
+  //set GLOBAL_tuid_$~tuid #~ent
+
+//query db 
+
+
 function python_db_init()
 {
     echo "hello world"
     sp_sc_func_exec timed_event_completed "newPlayer!" 20 1 3 3 3 3 
     sp_sc_func_exec timed_event_completed "hello" 10 1 3 3 3 3
-    sp_sc_func_exec timed_event_completed "beginner" 9 1 3 3 3 3 
-    sp_sc_func_exec timed_event_completed "plowsof" 9 1 3 3 3 3 
-    sp_sc_func_exec timed_event_completed "hax" 100 1 3 3 3 3 
-    sp_sc_func_exec timed_event_completed "speeder" -2 1 3 3 3 3 
+    sp_sc_func_exec timed_event_completed "beginner" 1 1 3 3 3 3 
+    sp_sc_func_exec timed_event_completed "plowsof" 1 1 3 3 3 3 
+    sp_sc_func_exec timed_event_completed "hax" 100 3 1 3 3 3 
+    sp_sc_func_exec timed_event_completed "speeder" 1 1 3 3 3 3 
+
+    sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_begin "pydb_map_begin"
+    sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_begin "pydb_player_join"
 }
 
-function timed_event_completed(~name,~time,~is_pb,~s1,~s2,~s3,~s4)
+function pydb_map_begin()
 {
-    sp_sc_cvar_sset ~line [%22\\surf_db\\%22,%22total_laps%22,%22 $~name %22, $~time , $~is_pb , $~s1 , $~s2 , $~s3 , $~s4 ]
+    //generate top10 file ?
+    //load pickled python dictionary for this map
+    sp_sc_func_exec set_map #_sp_sv_info_map_current
+    sp_sc_func_exec trigga
+    //sp_sc_func_exec registerSounds
+
+}
+
+function trigga(*)
+{
+  set _sf_sv_debug_triggers 0
+  set _sp_sv_limit_speed 0
+  //this will be a while loop in the end
+  //spawn 4 gates... seperate tuid's and origins 
+  //echo "Spawn Trigger"
+  //set ~origin "0:3585:-578";set ~size "0:280:340:0:-280:0";set ~callback "why_broken";set ~type "touch";set ~tuid "1"
+  //sp_sc_func_exec spawn_a_trigger #~origin #~size #~callback #~type #~tuid 
+  //set ~origin "5:1026:-183";set ~size "0:280:340:0:-280:0";set ~callback "why_broken";set ~type "touch";set ~tuid "4"
+  //sp_sc_func_exec spawn_a_trigger #~origin #~size #~callback #~type #~tuid 
+  //set ~origin "0:-1023:-562";set ~size "0:280:340:0:-280:0";set ~callback "why_broken";set ~type "touch";set ~tuid "3"
+  //sp_sc_func_exec spawn_a_trigger #~origin #~size #~callback #~type #~tuid 
+  //set ~origin "-11:1025:-973";set ~size "0:280:340:0:-280:0";set ~callback "why_broken";set ~type "touch";set ~tuid "2"
+  //sp_sc_func_exec spawn_a_trigger #~origin #~size #~callback #~type #~tuid 
+  //sf_sv_ent_create ~ent
+  //trigger uid
+  //~uid = "global_tuid_123412414 gate1"
+  //set GLOBAL_tuid_$~ent #~tuid
+  //set GLOBAL_gate_$~tuid #~ent
+
+  set GLOBAL_gate_1 "000000001"
+  set GLOBAL_gate_2 "000000002"
+  set GLOBAL_gate_3 "000000003"
+  set GLOBAL_gate_4 "000000004"
+  set GLOBAL_tuid_000000001 1
+  set GLOBAL_tuid_000000002 2
+  set GLOBAL_tuid_000000003 3
+  set GLOBAL_tuid_000000004 4
+  set GLOBAL_total_triggers 4
+
+}
+
+function devkit()
+{
+  sp_sc_func_exec why_broken 000000002 0
+  sp_sc_timer 5000 "sp_sc_func_exec why_broken 000000003 0"
+  sp_sc_timer 10000 "sp_sc_func_exec why_broken 000000004 0"
+  sp_sc_timer 15000 "sp_sc_func_exec why_broken 000000001 0"
+  //sp_sc_timer 20000 "sp_sc_func_exec why_broken 000000001 0"
+}
+function pydb_make_top10()
+{
+    ehco "hello"
+}
+
+function .rank(~slot)
+{
+    sp_sc_cvar_copy ~rank pydb_surf_rank_$~slot
+    sset ~msg You are ranked $~rank
+    say #~msg
+    set pydb_surf_spb_$pydb_slot 0
+    //set pydb_surf_pb_$pydb_slot $pydb_pb
+    //set pydb_surf_rank_$pydb_slot $pydb_rank
+    //set pydb_surf_s1_$pydb_slot $pydb_s1
+    //set pydb_surf_s2_$pydb_slot $pydb_s2
+    //set pydb_surf_s3_$pydb_slot $pydb_s3
+    //set pydb_surf_s4_$pydb_slot $pydb_s4
+    //set pydb_surf_total_$pydb_slot $pydb_total
+    //set pydb_++ 0; add pydb_++ $pydb_s1;add pydb_++ $pydb_s2;add pydb_++ $pydb_s3; add pydb_++ $pydb_s4
+    //set pydb_surf_++_$pydb_slot $~++
+}
+
+function .top10(~slot)
+{
+    ehco "hello"
+}
+
+function pydb_set_name(~name,~slot,~return_to)
+{
+    sp_sc_cvar_no_color ~name ~name
+    //remove spaces and .lower()
+    sp_sc_cvar_replace ~name ~name %20: %41-%5a:%61-%7a
+    sp_sc_flow_if text cvar ~name == val ""
+    {
+    set ~name "anonymous"
+    }
+    sp_sc_cvar_hex ~fname ~name
+    sp_sc_func_exec $~return_to #~fname #~slot "~"
+}
+
+function pydb_handle_finish(*)
+{
+  sp_sc_flow_if number cvar ~0 == val 1
+  {
+    set ~slot $~1
+    sp_sv_info_client $~slot
+    sp_sc_func_exec pydb_set_name #_sp_sv_info_client_name #~slot "pydb_handle_finish"
+  }
+  else
+  {
+    //we have the name
+    set ~name #~1
+    set ~slot #~2
+    //time is diff between when we 1st touched 1
+    sp_sc_cvar_copy ~time pydb_surf_pb_$~slot
+    sp_sc_cvar_copy ~s1 pydb_surf_s1_$~slot
+    sp_sc_cvar_copy ~s2 pydb_surf_s2_$~slot
+    sp_sc_cvar_copy ~s3 pydb_surf_s3_$~slot
+    sp_sc_cvar_copy ~s4 pydb_surf_s4_$~slot
+    sp_sc_cvar_copy ~spb pydb_surf_spb_$~slot
+    sp_sc_func_exec timed_event_completed #~name #~time #~spb #~s1 #~s2 #~s3 #~s4
+
+  }
+}
+
+//
+// echo lines to sof.log for python parser
+//
+function timed_event_completed(~name,~time,~spb,~s1,~s2,~s3,~s4)
+{
+    sp_sc_cvar_sset ~line [%22\\surf_db\\%22,%22total_laps%22,%22 $~name %22,%22 $~time %22,%22 $~spb %22,%22 $~s1 %22,%22 $~s2 %22,%22 $~s3 %22,%22 $~s4 %22]
     sp_sc_cvar_unescape ~line ~line
     echo $~line
 }
 
 function set_map(~mapname)
 {
+    //bug of map change during run
+    sp_sv_info_frames
+    sp_sc_cvar_split ~split "/" ~mapname
+    set ~mapname $~split_2
     sp_sc_cvar_sset ~msg [%22\\surf_db\\%22,%22map_change%22,%22 $~mapname %22]
     sp_sc_cvar_unescape ~msg ~msg
-    echo #~msg
+    echo $~msg
+}
+
+function pydb_player_join(*)
+{
+    sp_sc_flow_if number cvar ~0 == val 1
+    {
+        //clear touched cvars
+        sp_sv_info_client #~1
+        set ~name #_sp_sv_info_client_name
+        sp_sc_func_exec pydb_set_name #~name #~1 "pydb_player_join"
+    }
+    else
+    {
+        set ~name #~1
+        set ~slot #~2
+        sp_sc_cvar_sset ~msg [%22\\surf_db\\%22,%22join%22,%22 $~name %22,%22 $~slot %22]
+        sp_sc_cvar_unescape ~msg ~msg
+        echo $~msg
+    }
+}
+
+
+function pydb_zero_touch_times(~slot)
+{
+  //zero section times
+  set ~counter 1
+  sp_sc_cvar_find ~tmp GLOBAL_gate_*
+  sp_sc_flow_while number cvar ~counter <= cvar ~tmp_0
+  {
+    sp_sc_cvar_copy ~ok ~tmp_$~counter
+    sp_sc_cvar_copy ~ent $~ok
+    sp_sc_cvar_list ~ent
+    sp_sc_cvar_sset ~tmp touched_trigger_$~ent _$~slot
+    zero $~tmp
+    add ~counter 1
+  }
 }
 
 //
@@ -32,4 +210,295 @@ function broadcast_new_rank(pydb_name,pydb_new_rank)
     //~temp cvars are deleted when rcon status packet calls this function
     sset ~msg $pydb_name is now number $pydb_new_rank
     echo #~msg
+}
+
+function pydb_set_begin_cvars(pydb_slot,pydb_pb,pydb_rank,pydb_s1,pydb_s2,pydb_s3,pydb_s4,pydb_total,pydb_first,pydb_last)
+{
+  say "WELCOME"
+  //
+  //~rank = unranked until you complete the course
+  //starting values are 999~
+  set pydb_surf_spb_$pydb_slot 0
+  set pydb_surf_pb_$pydb_slot $pydb_pb
+  set pydb_surf_rank_$pydb_slot $pydb_rank
+  set pydb_surf_s1_$pydb_slot $pydb_s1
+  set pydb_surf_s2_$pydb_slot $pydb_s2
+  set pydb_surf_s3_$pydb_slot $pydb_s3
+  set pydb_surf_s4_$pydb_slot $pydb_s4
+  set pydb_surf_total_$pydb_slot $pydb_total
+  set pydb_++ 0; add pydb_++ $pydb_s1;add pydb_++ $pydb_s2;add pydb_++ $pydb_s3; add pydb_++ $pydb_s4
+  set pydb_surf_++_$pydb_slot $~++
+  sp_sc_func_exec pydb_zero_touch_times $~slot
+}
+
+function slot_is_valid(~num)
+{
+  set GLOBAL_slot_valid 0
+  sp_sc_flow_if number cvar ~slot < cvar maxclients
+  {
+    sp_sc_flow_if number cvar ~slot > val -1
+    {
+      set GLOBAL_slot_valid 1
+    }
+  }
+}
+//call back function
+function why_broken(*)
+{
+  //sp_sc_func_exec ent_get_skinnum #~2
+  //set ~slot #GLOBAL_skinnum
+  set ~slot #~2
+  set ~ent #~1
+  //sp_sc_func_exec skinnum_is_valid $~slot
+  set GLOBAL_slot_valid 1
+  sp_sc_cvar_list ~slot ~ent
+  sp_sc_flow_if number cvar GLOBAL_slot_valid == val 1
+  {
+    sp_sc_cvar_sset ~value "touched_trigger_" $~ent "_" $~slot
+    sp_sc_cvar_copy ~tmp $~value
+    sp_sc_cvar_copy ~gate GLOBAL_tuid_$~ent
+
+    sp_sc_cvar_list GLOBAL_tuid_$~ent
+    sp_sc_cvar_list ~tmp
+    sp_sc_cvar_list ~gate
+    sp_sc_flow_if text cvar ~tmp == val ""
+    {
+      //first time we've touched this trigger
+      sp_sv_info_frames
+      set ~now #_sp_sv_info_frames
+      set $~value #~now //set value server frames
+      //gate = number
+      sp_sc_flow_if text cvar ~gate != val "1"
+      {
+        sp_sc_func_exec set_section_time #~slot #~gate #~now
+      }
+      else
+      {
+        echo "begin(((((((((((((((((((((("
+        sp_sc_func_exec pydb_zero_touch_times $~slot
+        sp_sc_cvar_sset ~tmp touched_trigger_$~ent _ $~slot
+        set $~tmp #~now
+        set touched_trigger_last_$~slot 1
+        set pydb_surf_spb_$~slot 0
+        //first time we've touched trigger 1
+        //sp_sc_func_exec race_time_score_loop $~slot $~2
+      }
+    }
+    else
+    {
+      //we have touched it before
+      echo "we touched this before"
+      sp_sc_flow_if text cvar ~gate == val "1"
+      {
+        set ~counter 1
+        set ~touched_all 1
+        sp_sc_flow_while number cvar ~counter <= val 4
+        {
+          sp_sc_cvar_copy ~ent$~counter GLOBAL_gate_$~counter
+          //~ent3 1938173918237129837
+          sp_sc_cvar_sset ~tmp "~ent" $~counter
+          sp_sc_cvar_copy ~theEnt $~tmp
+          sp_sc_cvar_sset ~check$~counter "touched_trigger_" $~theEnt "_" $~slot
+          sp_sc_cvar_sset ~tmp "~check" $~counter
+          sp_sc_cvar_copy ~tmp $~tmp
+          add ~counter 1
+          sp_sc_flow_if text cvar ~tmp == val ""
+          {
+            ~touched_all 0
+          }
+        }
+        sp_sc_flow_if number cvar ~touched_all == val 1
+        {
+          sp_sc_flow_if number cvar touched_trigger_last_$~slot == val 4
+          {
+            //touched all and previous = 4. finished
+            sp_sv_info_frames
+            //~tmp1 = start time
+            set ~now $_sp_sv_info_frames
+            sp_sc_cvar_copy ~time_touched_1 $~check1
+            add ~now -$~time_touched_1
+            set ~lap_time $~now
+            echo completed in $~lap_time frames gj
+            //sp_sc_cvar_substr ~time ~now 0 4
+            sp_sc_flow_if number cvar ~lap_time < cvar pydb_surf_pb_$~slot
+            {
+              set pydb_surf_pb_$~slot #~lap_time 
+              sp_sc_func_exec sound_pb #~slot
+            }
+            else
+            {
+              //normal lap end sound
+              sp_sc_func_exec sound_lap_end #~slot
+            }
+            sp_sc_func_exec set_section_time #~slot #~gate $_sp_sv_info_frames
+            sp_sc_func_exec pydb_handle_finish $~slot 
+            sp_sc_func_exec pydb_zero_touch_times $~slot
+            sp_sc_cvar_sset ~tmp touched_trigger_$~ent _ $~slot
+            set $~tmp #_sp_sv_info_frames
+            set touched_trigger_last_$~slot 1
+            set pydb_surf_spb_$~slot 0
+          }
+        }
+      }
+    }
+    set touched_trigger_last_$~slot $~gate
+  }
+}
+
+//set touched_trigger_000000004_0 "1740"
+//set touched_trigger_000000003_0 "1690"
+//set touched_trigger_000000002_0 "1640"
+//set touched_trigger_last_0 "1"
+//set touched_trigger_""_0 ""
+//set touched_trigger_000000001_0 "2799"
+function set_section_time(~slot,~gate,~now)
+{
+  //"touched_trigger_" $~prev_ent "_" $~slot
+  echo "section time"
+  sp_sc_cvar_list ~slot ~gate ~now
+  sp_sc_flow_if number cvar ~gate == val 1
+  {
+    set ~prev 4
+  }
+  else
+  {
+    set ~prev #~gate
+    add ~prev -1 
+  }
+  //if the last gate we touched is == to prev - continue, else we're backwards
+  //last touched = 1 
+  //we touch 4
+  //last touch should be ==
+  sp_sc_cvar_list touched_trigger_last_?
+  sp_sc_flow_if number cvar ~prev != cvar touched_trigger_last_$~slot
+  {
+    say "you're going backwards lol"
+  }
+  else
+  {
+    sp_sc_cvar_copy ~prev_ent GLOBAL_gate_$~prev
+    sp_sc_cvar_sset ~tmp "touched_trigger_" $~prev_ent "_" $~slot
+
+    sp_sc_cvar_copy ~time_prev $~tmp
+    add ~now -$~time_prev
+    sset ~msg we touched prev gate $~now frames ago
+    echo #~msg
+
+    sp_sc_cvar_sset ~pb_s_time "pydb_surf_s" $~gate "_" $~slot
+
+    sp_sc_flow_if number cvar ~now < cvar $~pb_s_time
+    {
+      set pydb_surf_spb_$~slot 1
+      set $~pb_s_time #~now
+      //sp_sv_player_paint #~slot 0 1 0 1
+      sset ~cmd sp_sv_player_paint #~slot 1 1 1 1 
+      //sp_sc_timer 130 #~cmd
+      //special noise
+      sp_sc_func_exec sound_section_pb #~slot
+
+      sp_sc_cvar_math_sub ~val $~now
+      //sp_sc_func_exec frames_to_seconds $~val
+      //sp_sc_cvar_sset ~msg "%03-" $GLOBAL_ftos
+      sp_sc_cvar_sset ~msg "%03-" $~now
+      set ~frames $~now
+    }
+    else
+    {
+      sp_sc_flow_if number cvar ~now == cvar $~section_time_s
+      {
+        //sp_sv_player_paint #~slot 0 0 1 1
+        sset ~cmd sp_sv_player_paint #~slot 1 1 1 1 
+        //sp_sc_timer 130 #~cmd
+        sp_sc_cvar_sset ~msg "%03=="
+      }
+      else
+      {
+        //its slow
+        //sp_sv_player_paint #~slot 1 0 0 1
+        sset ~cmd sp_sv_player_paint #~slot 1 1 1 1 
+        //sp_sc_timer 130 #~cmd
+        sp_sc_cvar_math_sub ~now $~val
+        //sp_sc_func_exec frames_to_seconds $~now
+        //sp_sc_cvar_sset ~msg "%02+" $GLOBAL_ftos
+        sp_sc_cvar_sset ~msg "%02+" $~now
+      }
+      //normal noise
+      sp_sc_func_exec sound_section #~slot
+      set ~frames $~val
+    }
+    sp_sc_cvar_unescape ~msg ~msg
+    //sp_sv_print_sp_client $~slot 56 #~msg
+    echo #~msg
+  }
+}
+//-------------------------
+//Some sound stuff
+//-------------------------
+function registerSounds()
+{
+  sf_sv_sound_register "weapons/mpg/Pullout.wav" //con
+  sf_sv_sound_register "weapons/mpg/out.wav" //disc
+  sf_sv_sound_register "dm/assassin/KillTarget.wav" //pb section
+  sf_sv_sound_register "dm/assassin/BadKill.wav" //section 
+  sf_sv_sound_register "dm/ctf/FlagBase.wav" //lap end
+  sf_sv_sound_register "dm/arsenal/BigWinner.wav" //pb
+}
+function entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
+{
+  //sp_sv_player_ent ~ent #~slot
+  //sp_sv_sound_play_ent #~sound #~ent #~vol #~atten #~clbool
+  echo "playsound"
+}
+
+function sound_begin(~slot)
+{
+  set ~sound "weapons/mpg/Pullout.wav"
+  sp_sc_func_exec sound_play_exclude #~slot #~sound
+}
+
+function sound_disconnect(*)
+{
+  set ~sound "weapons/mpg/out.wav"
+  sp_sc_func_exec sound_play_exclude #~1 #~sound
+}
+
+function sound_section(~slot)
+{
+  set ~sound "dm/assassin/BadKill.wav"
+  //sp_sc_func_exec entSoundPlay #~slot #~sound 0 1 0.3
+}
+
+function sound_section_pb(~slot)
+{
+  set ~sound "dm/assassin/KillTarget.wav"
+  //sp_sc_func_exec entSoundPlay #~slot #~sound 0 1 0.5
+}
+
+function sound_lap_end(~slot)
+{
+  set ~sound "dm/ctf/FlagBase.wav"
+  //sp_sc_func_exec entSoundPlay #~slot #~sound 0 1 0.6
+}
+
+function sound_pb(~slot)
+{
+  set ~sound "dm/arsenal/BigWinner.wav"
+  //sp_sc_func_exec entSoundPlay #~slot #~sound 0 1 1
+}
+
+function sound_play_exclude(~slot, ~sound)
+{
+  set ~counter 0
+  sp_sc_flow_while number cvar ~counter < val #maxclients
+  {
+    sp_sc_flow_if number cvar ~counter != val #~slot
+    {
+      sp_sv_info_client #~counter
+      sp_sc_flow_if text cvar _sp_sv_info_client_ip != val ""
+      {
+        sp_sc_func_exec entSoundPlay #~counter #~sound 0 1 1
+      }
+    }
+    add ~counter 1
+  }
 }
