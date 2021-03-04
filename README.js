@@ -1,5 +1,13 @@
 output:
 
+["\\surf_db\\","total_laps","68656c6c6f","200","1","50","50","50","50"]
+Rcon from 127.0.0.1:62661:
+rcon **** sp_sc_func_exec broadcast_new_rank 68656c6c6f 2
+68656c6c6f is now number 2
+
+
+
+early example output:
 ''' 
 ]sp_sc_func_exec python_db_init   
 hello world   
