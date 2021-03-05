@@ -298,6 +298,7 @@ def rank_up(data):
         initial_changes = True
       DoubleLinkedThing[str(self_above)]["rank"] += 1
       new_rank -= 1
+      print(f"new_rrank = {new_rank}")
       compare_name = self_above
       print(f"compare name: {compare_name}")
       pp = pprint.PrettyPrinter(indent=4)
@@ -308,7 +309,7 @@ def rank_up(data):
   #we're ranked
   #comparenames APJ
   #self_below=OP
-  new_rank = DoubleLinkedThing[str(name)]["rank"]
+  DoubleLinkedThing[str(name)]["rank"] = new_rank
   print(f"orig: {original_rank} new: {new_rank}")
   if original_rank != new_rank & new_rank != 1:
     #print change
