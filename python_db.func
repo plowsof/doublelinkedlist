@@ -66,9 +66,12 @@ function trigga(*)
 
 function devkit()
 {
-    //sp_sc_func_exec debug_do_lap 0 5
-    //sp_sc_func_exec debug_do_lap 1 1
-    sp_sc_func_exec debug_do_lap 2 2
+    sp_sc_func_exec debug_do_lap 0 28
+    //sp_sc_func_exec debug_do_lap 1 20
+    //sp_sc_func_exec debug_do_lap 2 10
+    //sp_sc_func_exec debug_do_lap 2 9
+    //sp_sc_func_exec debug_do_lap 1 8
+    //sp_sc_func_exec debug_do_lap 0 6
 }
 function debug_do_lap(~slot,~time)
 {
@@ -335,6 +338,7 @@ function why_broken(*)
               sp_sc_func_exec sound_lap_end #~slot
             }
             sp_sc_func_exec set_section_time #~slot #~gate $_sp_sv_info_frames
+            
             sp_sc_func_exec pydb_handle_finish $~slot 
             sp_sc_func_exec pydb_zero_touch_times $~slot
             sp_sc_cvar_sset ~tmp touched_trigger_$~ent _ $~slot
@@ -391,7 +395,8 @@ function set_section_time(~slot,~gate,~now)
 
     sp_sc_cvar_sset ~pb_s_time "pydb_surf_s" $~gate "_" $~slot
     sp_sc_cvar_copy ~saved_s_time $~pb_s_time
-    sp_sc_flow_if number cvar ~now < cvar $~pb_s_time
+    sp_sc_cvar_list ~saved_s_time ~now
+    sp_sc_flow_if number cvar ~now < cvar ~saved_s_time
     {
       set pydb_surf_spb_$~slot 1
       set $~pb_s_time #~now
