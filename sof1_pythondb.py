@@ -66,7 +66,8 @@ def on_modified(event):
                     "s1":data[5],
                     "s2":data[6],
                     "s3":data[7],
-                    "s4":data[8]
+                    "s4":data[8],
+                    "slot":data[9]
                   }
             lap_completed(dict_data)
           if data[1] == "map_change":
@@ -80,8 +81,6 @@ def on_modified(event):
                     "slot":data[3]
             }
             player_joined(dict_data)
-        else:
-          print(f"not good {line[0:12]}")
     log_seek = os.path.getsize(event.src_path)
     with open(sof_log_seek, "w+") as f:
       f.write(str(log_seek))
@@ -105,10 +104,10 @@ def player_joined(data):
     first_seen = date_now
     last_seen = date_now
   else:
-    DoubleLinkedThing[str[name]]["seen_last"] = date_now
-    info = DoubleLinkedThing[str[name]]
-    slot = info["slot"]
-    pb = info["pb"]
+    DoubleLinkedThing[str(name)]["seen_last"] = date_now
+    info = DoubleLinkedThing[str(name)]
+    slot = data["slot"]
+    pb = info["time"]
     rank = info["rank"]
     s1 = info["s1"]
     s2 = info["s2"]
@@ -131,22 +130,29 @@ def lap_completed(data):
   s2 = data["s2"]
   s3 = data["s3"]
   s4 = data["s4"]
+  slot = data["slot"]
+  spb = data["spb"]
+  print(f"{data['slot']} : completed")
   if name not in DoubleLinkedThing:
-    add_new(name,data)
+    add_new(data)
   else:
     #FIXME 
-    data_current = DoubleLinkedThing[str(name)]
     DoubleLinkedThing[str(name)]["total"] += 1
-    DoubleLinkedThing[str(name)]["s1"] = s1
-    DoubleLinkedThing[str(name)]["s2"] = s2
-    DoubleLinkedThing[str(name)]["s3"] = s3
-    DoubleLinkedThing[str(name)]["s4"] = s4 
+    if spb == 1:
+      if DoubleLinkedThing[str(name)]["s1"] < s1:
+        DoubleLinkedThing[str(name)]["s1"] = s1
+      if DoubleLinkedThing[str(name)]["s2"] < s2:
+        DoubleLinkedThing[str(name)]["s2"] = s2
+      if DoubleLinkedThing[str(name)]["s3"] < s3:
+        DoubleLinkedThing[str(name)]["s3"] = s3
+      if DoubleLinkedThing[str(name)]["s4"] < s4:
+        DoubleLinkedThing[str(name)]["s4"] = s1
     DoubleLinkedThing[str(name)]["seen_last"] = date_now
     DoubleLinkedThing[str(name)]["total"] += 1
     if int(DoubleLinkedThing[str(name)]["time"]) > int(pb_time):
       DoubleLinkedThing[str(name)]["time"] = pb_time
       if DoubleLinkedThing[data["name"]]["rank"] != 1:
-        rank_up(name)
+        rank_up(data)
         pass
 
 #each map has a seperate list
@@ -167,7 +173,7 @@ def create_list():
   global DoubleLinkedThing
   APJ = {
     "rank": 1,
-    "below":"OPJ",
+    "below":"OP",
     "above":"1st",
     "time": 100,
     "total":5
@@ -185,12 +191,14 @@ def create_list():
   DoubleLinkedThing["APJ"] = APJ
   DoubleLinkedThing["OP"] = OP
 
-def add_new(name,data):
+def add_new(data):
   global DoubleLinkedThing
+  name = data["name"]
   s1 = data["s1"]
   s2 = data["s2"]
   s3 = data["s3"]
   s4 = data["s4"]
+  slot = data["slot"]
   pb_time = data["time"]
   last = DoubleLinkedThing["last"]
   last_rank = DoubleLinkedThing[str(last)]["rank"]
@@ -211,7 +219,11 @@ def add_new(name,data):
   "seen_first":date_now,
   "seen_last":date_now
   }
-  rank_up(name)
+  print("After add_new done, before rank up")
+  pp = pprint.PrettyPrinter(indent=4)
+  pp.pprint(DoubleLinkedThing)
+
+  rank_up(data)
 
 def section_pb(data):
   print(f"player {data['name']} got a pb on section {data['section']} time: {data['time']}")
@@ -247,8 +259,10 @@ def testing():
   time.sleep(3)
   pp.pprint(DoubleLinkedThing)
 
-def rank_up(name):
+def rank_up(data):
   global DoubleLinkedThing
+  name = data["name"]
+  slot = data["slot"]
   original_data = DoubleLinkedThing[str(name)]
   original_rank = original_data["rank"]
   original_prev = original_data["below"]
@@ -257,29 +271,25 @@ def rank_up(name):
   new_rank = original_rank
   compare_name = name
   initial_changes = False
+  
   while True:
-    print("hello world")
     self_above = DoubleLinkedThing[str(compare_name)]["above"]
+    self_below = DoubleLinkedThing[str(compare_name)]["below"]
     if self_above == "1st":
-      DoubleLinkedThing[str(name)]["below"] = DoubleLinkedThing["first"]
+      DoubleLinkedThing[str(name)]["below"] = str(DoubleLinkedThing["first"])
       DoubleLinkedThing[str(name)]["above"] = "1st"
       DoubleLinkedThing["first"] = str(name)
       DoubleLinkedThing[str(compare_name)]["above"]=str(name)
       DoubleLinkedThing[str(name)]["rank"] = 1
       break
-    self_below = DoubleLinkedThing[str(compare_name)]["below"]
-
-    above_above = DoubleLinkedThing[str(self_above)]["above"]
-    above_below = DoubleLinkedThing[str(self_above)]["below"]
-    
-    tmp_time = DoubleLinkedThing[str(self_above)]["time"]
+    aboves_below = DoubleLinkedThing[str(self_above)]["below"]
     #if abovs time < than ours 
     if int(DoubleLinkedThing[str(self_above)]["time"]) >= int(original_time):        
       if not initial_changes:
         if self_below == "last":
-          DoubleLinkedThing["last"] = self_above
+          print("we're last")
+          DoubleLinkedThing["last"] = str(self_above)
           DoubleLinkedThing[str(self_above)]["below"] = "last"
-          self_below = "done"
 
         else:
           #belows above is now our above
@@ -287,28 +297,36 @@ def rank_up(name):
           DoubleLinkedThing[str(self_above)]["below"] = str(self_below)
         initial_changes = True
       DoubleLinkedThing[str(self_above)]["rank"] += 1
+      new_rank -= 1
       compare_name = self_above
+      print(f"compare name: {compare_name}")
+      pp = pprint.PrettyPrinter(indent=4)
+      pp.pprint(DoubleLinkedThing)
+
     else:
-      if str(compare_name) != str(name):
-        new_rank = DoubleLinkedThing[str(self_above)]["rank"]
-        new_rank = new_rank + 1
-        DoubleLinkedThing[str(name)]["rank"] = new_rank
-        DoubleLinkedThing[str(name)]["below"] = str(self_below)
-        DoubleLinkedThing[str(name)]["above"] = str(self_above)
-        print(f"self above:{self_above} below:{self_below}")
-        DoubleLinkedThing[str(self_above)]["below"] = str(name)
-        #self_below = "last"
-        if self_below != "last":
-          DoubleLinkedThing[str(self_below)]["above"] =str(name)
-          pass
       break
   #we're ranked
+  #comparenames APJ
+  #self_below=OP
   new_rank = DoubleLinkedThing[str(name)]["rank"]
-  if original_rank != new_rank:
+  print(f"orig: {original_rank} new: {new_rank}")
+  if original_rank != new_rank & new_rank != 1:
     #print change
-    msg = [f"sp_sc_func_exec broadcast_new_rank \"{name}\" \"{new_rank}\""]
+    msg = [f"sp_sc_func_exec broadcast_new_rank \"{name}\" \"{new_rank}\" \"{slot}\""]
     udp_send(msg)
+    DoubleLinkedThing[str(name)]["rank"] = new_rank
+    print(f"comparenames {compare_name}")
+    DoubleLinkedThing[str(compare_name)]["below"] = str(name)
+    print(f"self_below={self_below}")
+    DoubleLinkedThing[str(self_below)]["above"] = str(name)
+    DoubleLinkedThing[str(name)]["above"] = str(compare_name)
+    DoubleLinkedThing[str(name)]["below"] = str(self_below)
+
+  else:
+    print("no rank change / we're last / we're first")
     #print(f"{name} was ranked: {original_rank} new_rank: {new_rank}")
+  pp = pprint.PrettyPrinter(indent=4)
+  pp.pprint(DoubleLinkedThing)
 
 def save_list():
   global DoubleLinkedThing
