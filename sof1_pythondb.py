@@ -1,3 +1,7 @@
+#f = io.open("/dev/ttyUSB0")
+ #   while True:
+  #      print f.readline().strip()
+
 import os
 import threading 
 from watchdog.observers import Observer
@@ -312,20 +316,22 @@ def rank_up(data):
   DoubleLinkedThing[str(name)]["rank"] = new_rank
   print(f"orig: {original_rank} new: {new_rank}")
   if original_rank != new_rank & new_rank != 1:
-    #print change
-    msg = [f"sp_sc_func_exec broadcast_new_rank \"{name}\" \"{new_rank}\" \"{slot}\""]
-    udp_send(msg)
     DoubleLinkedThing[str(name)]["rank"] = new_rank
     print(f"comparenames {compare_name}")
     DoubleLinkedThing[str(compare_name)]["below"] = str(name)
     print(f"self_below={self_below}")
-    DoubleLinkedThing[str(self_below)]["above"] = str(name)
+    if self_below != "last":
+      DoubleLinkedThing[str(self_below)]["above"] = str(name)
     DoubleLinkedThing[str(name)]["above"] = str(compare_name)
     DoubleLinkedThing[str(name)]["below"] = str(self_below)
 
   else:
     print("no rank change / we're last / we're first")
     #print(f"{name} was ranked: {original_rank} new_rank: {new_rank}")
+  if original_prev == "last" or new_rank != original_rank:
+    #print rank if new or its changed
+    msg = [f"sp_sc_func_exec broadcast_new_rank \"{name}\" \"{new_rank}\" \"{slot}\""]
+    udp_send(msg)
   pp = pprint.PrettyPrinter(indent=4)
   pp.pprint(DoubleLinkedThing)
 
