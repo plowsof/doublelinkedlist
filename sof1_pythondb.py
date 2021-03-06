@@ -24,6 +24,8 @@ sof_log_seek = os.path.join(sof_log_dir,"sof_seek.log")
 sof_log_file = "C:\\Users\\Human\\Desktop\\Raven\\SOF PLATINUM\\user-server\\sof.log"
 log_seek = 0
 
+add_old_data = True
+
 def start_observer():
   print("observera")
   global sof_log_dir
@@ -179,14 +181,18 @@ def create_list():
     "rank": 1,
     "below":"OP",
     "above":"1st",
-    "time": 100,
-    "total":5
+    "time": 800,
+    "total":5,
+    "s1":900,
+    "s2":900,
+    "s3":900,
+    "s4":900
   }
   OP = {
     "rank": 2,
     "below":"last",
     "above":"APJ",
-    "time":200,
+    "time":900,
     "total":1
   }
 
@@ -197,6 +203,7 @@ def create_list():
 
 def add_new(data):
   global DoubleLinkedThing
+  global add_old_data 
   name = data["name"]
   s1 = data["s1"]
   s2 = data["s2"]
@@ -210,23 +217,36 @@ def add_new(data):
   DoubleLinkedThing["last"] = str(name)
   DoubleLinkedThing[str(last)]["below"] = str(name)
   date_now = datetime.datetime.now().date().isoformat()
-  DoubleLinkedThing[str(name)] = {
-  "rank":rank,
-  "below":"last",
-  "above":str(last),
-  "time": int(pb_time),
-  "total": 1,
-  "s1":s1,
-  "s2":s2,
-  "s3":s3,
-  "s4":s4,
-  "seen_first":date_now,
-  "seen_last":date_now
-  }
-  print("After add_new done, before rank up")
-  pp = pprint.PrettyPrinter(indent=4)
-  pp.pprint(DoubleLinkedThing)
-
+  if not add_old_data:
+    DoubleLinkedThing[str(name)] = {
+    "rank":rank,
+    "below":"last",
+    "above":str(last),
+    "time": int(pb_time),
+    "total": 1,
+    "s1":s1,
+    "s2":s2,
+    "s3":s3,
+    "s4":s4,
+    "seen_first":date_now,
+    "seen_last":date_now
+    }
+  else:
+    seen_first = data["seen_first"]
+    seen_last = data["seen_last"]
+    DoubleLinkedThing[str(name)] = {
+    "rank":rank,
+    "below":"last",
+    "above":str(last),
+    "time": int(pb_time),
+    "total": 1,
+    "s1":s1,
+    "s2":s2,
+    "s3":s3,
+    "s4":s4,
+    "seen_first":seen_first,
+    "seen_last":seen_last
+    }
   rank_up(data)
 
 def section_pb(data):
@@ -264,76 +284,72 @@ def testing():
   pp.pprint(DoubleLinkedThing)
 
 def rank_up(data):
+  #rank 1 never gets here
   global DoubleLinkedThing
   name = data["name"]
   slot = data["slot"]
-  original_data = DoubleLinkedThing[str(name)]
-  original_rank = original_data["rank"]
-  original_prev = original_data["below"]
-  original_next = original_data["above"]
-  original_time = original_data["time"]
-  new_rank = original_rank
-  compare_name = name
+  orig_data = DoubleLinkedThing[str(name)]
+  orig_rank = orig_data["rank"]
+  print(f"begin rank = {orig_rank}")
+  compare_to_name = DoubleLinkedThing[str(data["name"])]["above"]
+  compare_to_above = DoubleLinkedThing[str(compare_to_name)]["above"]
+  print(compare_to_name)
+  compare_to_time = DoubleLinkedThing[str(compare_to_name)]["time"]
   initial_changes = False
-  
   while True:
-    self_above = DoubleLinkedThing[str(compare_name)]["above"]
-    self_below = DoubleLinkedThing[str(compare_name)]["below"]
-    if self_above == "1st":
-      DoubleLinkedThing[str(name)]["below"] = str(DoubleLinkedThing["first"])
-      DoubleLinkedThing[str(name)]["above"] = "1st"
-      DoubleLinkedThing["first"] = str(name)
-      DoubleLinkedThing[str(compare_name)]["above"]=str(name)
-      DoubleLinkedThing[str(name)]["rank"] = 1
-      break
-    aboves_below = DoubleLinkedThing[str(self_above)]["below"]
-    #if abovs time < than ours 
-    if int(DoubleLinkedThing[str(self_above)]["time"]) >= int(original_time):        
+    print("hello")
+    print(f"is {orig_data['time']} <= {compare_to_time} <=" )
+    if orig_data["time"] <= compare_to_time:  
+      print(f"YES it is!")      
       if not initial_changes:
-        if self_below == "last":
+        if orig_data["below"] == "last":
           print("we're last")
-          DoubleLinkedThing["last"] = str(self_above)
-          DoubleLinkedThing[str(self_above)]["below"] = "last"
-
+          DoubleLinkedThing["last"] = str(orig_data["above"])
+          DoubleLinkedThing[str(orig_data["above"])]["below"] = "last"
         else:
           #belows above is now our above
-          DoubleLinkedThing[str(self_below)]["above"] = str(self_above)
-          DoubleLinkedThing[str(self_above)]["below"] = str(self_below)
+          DoubleLinkedThing[orig_data["below"]]["above"] = str(orig_data["above"])
+          DoubleLinkedThing[orig_data["above"]]["below"] = str(orig_data["below"])
         initial_changes = True
-      DoubleLinkedThing[str(self_above)]["rank"] += 1
-      new_rank -= 1
-      print(f"new_rrank = {new_rank}")
-      compare_name = self_above
-      print(f"compare name: {compare_name}")
-      pp = pprint.PrettyPrinter(indent=4)
-      pp.pprint(DoubleLinkedThing)
+      DoubleLinkedThing[str(compare_to_name)]["rank"] += 1
+      DoubleLinkedThing[data["name"]]["rank"] -= 1
 
+      print(f"compare_toname = {compare_to_above}")
+      if str(compare_to_above) == "1st":
+        DoubleLinkedThing[str(data["name"])]["above"] = "1st"
+        DoubleLinkedThing[str(data["name"])]["below"] = compare_to_name
+        DoubleLinkedThing[str(compare_to_name)]["above"] = data["name"]
+        DoubleLinkedThing["first"] = data["name"]
+        print("BREAK we'#re 1st")
+        break
+      else:
+        compare_to_name = DoubleLinkedThing[str(compare_to_name)]["above"]
+        compare_to_above = DoubleLinkedThing[str(compare_to_name)]["above"]
+        compare_to_time = DoubleLinkedThing[str(compare_to_name)]["time"]
     else:
+      print("BREAK not true <=?lo")
       break
-  #we're ranked
-  #comparenames APJ
-  #self_below=OP
-  DoubleLinkedThing[str(name)]["rank"] = new_rank
-  print(f"orig: {original_rank} new: {new_rank}")
-  if original_rank != new_rank & new_rank != 1:
-    DoubleLinkedThing[str(name)]["rank"] = new_rank
-    print(f"comparenames {compare_name}")
-    DoubleLinkedThing[str(compare_name)]["below"] = str(name)
-    print(f"self_below={self_below}")
-    if self_below != "last":
-      DoubleLinkedThing[str(self_below)]["above"] = str(name)
-    DoubleLinkedThing[str(name)]["above"] = str(compare_name)
-    DoubleLinkedThing[str(name)]["below"] = str(self_below)
+  print(f"orig: {orig_rank} new: {DoubleLinkedThing[data['name']]['rank']}")
+  if DoubleLinkedThing[data["name"]]["rank"] != orig_rank:
+    print("ranks are != ofcourse")
+    msg = [f"sp_sc_func_exec broadcast_new_rank \"{data['name']}\" \"{DoubleLinkedThing[data['name']]['rank']}\" \"{data['slot']}\""]
+    udp_send(msg)
+    #rank changed
+    print(f"compare_to_name = {compare_to_above}")
+    if int(DoubleLinkedThing[data["name"]]["rank"]) != 1:
+      compare_to_below = DoubleLinkedThing[str(compare_to_name)]["below"]
+      DoubleLinkedThing[str(data["name"])]["below"] = str(compare_to_below)
+
+      #aboves below has us as their below
+      DoubleLinkedThing[str(compare_to_below)]["above"] = data["name"]
+
+      DoubleLinkedThing[str(compare_to_name)]["below"] = data["name"] 
+      DoubleLinkedThing[str(data["name"])]["above"] = str(compare_to_name)
+      
+    
 
   else:
     print("no rank change / we're last / we're first")
-    #print(f"{name} was ranked: {original_rank} new_rank: {new_rank}")
-  if original_prev == "last" or new_rank != original_rank:
-    #print rank if new or its changed
-    msg = [f"sp_sc_func_exec broadcast_new_rank \"{name}\" \"{new_rank}\" \"{slot}\""]
-    udp_send(msg)
-  pp = pprint.PrettyPrinter(indent=4)
-  pp.pprint(DoubleLinkedThing)
 
 def save_list():
   global DoubleLinkedThing
@@ -345,7 +361,24 @@ def save_list():
     with open(python_db, 'wb+') as f:
       pickle.dump(DoubleLinkedThing,f)
     #save every 10 mins ~ temporary
-    
+
+def load_old_data():
+  add_old_data = True
+  global DoubleLinkedThing
+  with open("old_data_list", 'rb') as f:
+      old_data = pickle.load(f)
+
+  i = 0 
+  for x in old_data:
+    if "." in old_data[x]["time"]:
+      old_data[x]["time"] = 257
+      old_data[x]["seen_first"] = old_data[x]["seen_last"]
+    print(f"hello world !___ {old_data[x]['name']}")
+    print(f'{old_data[x]["name"]} <----------------------APJ?????')
+    print(old_data[x])
+    lap_completed(old_data[x])
+  pp = pprint.PrettyPrinter(indent=4)
+  pp.pprint(DoubleLinkedThing)
 def main():
   global DoubleLinkedThing
   global sof_log_seek
@@ -370,8 +403,12 @@ def main():
     os.makedirs(os.path.dirname(python_db))
   y = threading.Thread(target=save_list)
   y.start()
+  
   time.sleep(2)
+  load_old_data()
   #testing()
 
 if __name__ == '__main__':
   main()
+
+
