@@ -167,22 +167,27 @@ def lap_completed(data):
         create_top_10()
 
 #each map has a seperate list
+#save old one
 def set_map(themap):
   global DoubleLinkedThing
   global mapname
+  save_list()
   mapname = themap
-  DoubleLinkedThing = {}
   python_db = os.path.join(os.getcwd(),"python-db","mapname",mapname)
   if os.path.isfile(python_db):
+    print("Loading pickled dict fro mfile")
     with open(python_db, 'rb') as f:
       DoubleLinkedThing = pickle.load(f)
   else:
+    print("creating our own list")
     create_list()
     with open(python_db, 'wb+') as f:
       pickle.dump(DoubleLinkedThing,f)
+  create_top_10()
 
   #load pickled list <mapname>.pickle
 def create_list():
+  print("creat list&&&&&&&&&&&&&&&")
   global DoubleLinkedThing
   APJ = {
     "rank": 1,
@@ -307,6 +312,7 @@ def rank_up(data):
   print(compare_to_name)
   compare_to_time = DoubleLinkedThing[str(compare_to_name)]["time"]
   initial_changes = False
+  broadcast = 0
   while True:
     print("hello")
     print(f"is {orig_data['time']} <= {compare_to_time} <=" )
@@ -351,9 +357,8 @@ def rank_up(data):
   print(f"orig: {orig_rank} new: {DoubleLinkedThing[data['name']]['rank']}")
   if DoubleLinkedThing[data["name"]]["rank"] != orig_rank:
     print("ranks are != ofcourse")
-    msg = [f"sp_sc_func_exec broadcast_new_rank \"{data['name']}\" \"{DoubleLinkedThing[data['name']]['rank']}\" \"{data['slot']}\""]
-    udp_send(msg)
     #rank changed
+    broadcast = 1
 
     print(f"compare_to_name = {compare_to_above}")
     if int(DoubleLinkedThing[data["name"]]["rank"]) != 1:
@@ -365,17 +370,19 @@ def rank_up(data):
 
       DoubleLinkedThing[str(compare_to_name)]["below"] = data["name"] 
       DoubleLinkedThing[str(data["name"])]["above"] = str(compare_to_name)
-      
-    
-
   else:
     print("no rank change / we're last / we're first")
-
     #new info in top 10
+  msg = [f"sp_sc_func_exec broadcast_new_rank \"{data['name']}\" \"{DoubleLinkedThing[data['name']]['rank']}\" \"{data['slot']}\" \"{broadcast}\""]
+  udp_send(msg)
   print("are we int he top10?")
   if int(DoubleLinkedThing[data["name"]]["rank"]) <= 10:
     create_top_10()
 
+def save_list_loop():
+  time.sleep(60)
+    save_list()
+    #save every 10 mins ~ temporary
 def save_list():
   global DoubleLinkedThing
   global mapname
@@ -385,8 +392,6 @@ def save_list():
     #if somebody made a pb <pbwasmade>.file -> rem
     with open(python_db, 'wb+') as f:
       pickle.dump(DoubleLinkedThing,f)
-    #save every 10 mins ~ temporary
-
 def load_old_data():
   add_old_data = True
   global DoubleLinkedThing
@@ -436,7 +441,7 @@ def create_top_10():
   fname = os.path.join(sofplus_data_dir,cfg_name)
   getinfo = DoubleLinkedThing["first"]
   with open(fname,"w+") as f:
-    for x in range(1,10):
+    for x in range(1,11):
       name = getinfo
       print(DoubleLinkedThing[str(getinfo)])
       rank = x 
@@ -471,7 +476,7 @@ def main():
   python_db = os.path.join(os.getcwd(),"python-db","mapname")
   if not os.path.exists(python_db):
     os.makedirs(os.path.dirname(python_db))
-  y = threading.Thread(target=save_list)
+  y = threading.Thread(target=save_list_loop)
   y.start()
   
   time.sleep(2)
