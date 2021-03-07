@@ -1,20 +1,5 @@
-//pickled python list
-//for sof1 soudns
-//"link" -> files 
-//for x in each linke - if we dont haveany files download link
-//trigger ~ent is a random int not "1..2..3..4"
-
-//on useirnfo change if name != original name then handle it like a new player joining
-
-  //sf_sv_ent_create ~ent
-  //trigger uid
-  //~uid = "global_tuid_123412414 gate1"
-  //set GLOBAL_tuid_$~ent #~tuid
-  //set GLOBAL_tuid_$~tuid #~ent
 
 //query db 
-
-
 function python_db_init()
 {
 
@@ -42,11 +27,11 @@ function pydb_userinfo_change(~slot)
 
 function pydb_map_begin()
 {
-    //generate top10 file ?
     //load pickled python dictionary for this map
     sp_sc_func_exec set_map #_sp_sv_info_map_current
     sp_sc_func_exec trigga
     sp_sc_func_exec registerSounds
+    sp_sc_func_exec pydb_make_top10
 
 }
 
@@ -108,6 +93,8 @@ function .rank(~slot)
     sp_sc_cvar_copy ~rank pydb_surf_rank_$~slot
     sset ~msg You are ranked $~rank
     say #~msg
+    sp_sc_cvar_list pydb_surf_*_$~slot
+    //python will make a .cfg with above 
     //set pydb_surf_spb_$pydb_slot 0
     //set pydb_surf_pb_$pydb_slot $pydb_pb
     //set pydb_surf_rank_$pydb_slot $pydb_rank
@@ -138,13 +125,20 @@ function .top10(~slot)
 {
   set ~counter 1
   echo "hello world"
+  set ~counter 1
   sp_sc_flow_while number cvar ~counter <= val 10
   {
     sp_sc_flow_if text cvar pydb_data_$~counter != val ""
     {
       //its set with data
       sp_sc_cvar_copy ~data pydb_data_$~counter
-      say #~data
+      sp_sc_cvar_split ~split "\" ~data
+      set ~name $~split_1
+      set ~time $~split_2
+      set ~last_seen $~split_3
+      sp_sc_cvar_unhex ~name ~name
+      sset ~msg Name: $~name Time: $~time Lastseen: $~last_seen
+      echo #~msg
     }
     add ~counter 1
   }
@@ -261,12 +255,15 @@ function pydb_zero_touch_times(~slot)
 // func for python's udp packet to run
 //
 
-function broadcast_new_rank(pydb_name,pydb_new_rank,pydb_slot)
+function broadcast_new_rank(pydb_name,pydb_new_rank,pydb_slot,pydb_broadcast)
 {
+  sp_sc_flow_if number cvar pydb_broadcast == val 1
+  {
     //~temp cvars are deleted when rcon status packet calls this function
     sset ~msg $pydb_name is now number $pydb_new_rank
     echo #~msg
-    set pydb_surf_rank_$pydb_slot $pydb_new_rank
+  }
+  set pydb_surf_rank_$pydb_slot $pydb_new_rank
 }
 
 function pydb_set_begin_cvars(pydb_slot,pydb_pb,pydb_rank,pydb_s1,pydb_s2,pydb_s3,pydb_s4,pydb_total,pydb_first,pydb_last)
@@ -363,8 +360,9 @@ function pydb_surf_callback(*)
             //touched all and previous = 4. finished
             sp_sv_info_frames
             //~tmp1 = start time 
+            sp_sc_cvar_sset ~time_touched_1 touched_trigger_$GLOBAL_gate_1 _$~slot
+            sp_sc_cvar_copy ~time_touched_1 $~time_touched_1
             set ~now $_sp_sv_info_frames
-            sp_sc_cvar_copy ~time_touched_1 $~check1
             add ~now -$~time_touched_1
             set ~lap_time $~now
             say completed in $~lap_time frames gj
