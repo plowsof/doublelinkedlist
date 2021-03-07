@@ -20,10 +20,15 @@ function python_db_init()
 
     sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_begin "pydb_map_begin"
     sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_begin "pydb_player_join"
+    sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_disconnect "pydb_player_leave"
     sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_userinfo_change "pydb_userinfo_change"
     //sp_sc_func_exec registerSounds
 }
-
+function pydb_player_leave(*)
+{
+    set ~slot $~1
+    sp_sc_func_exec sound_disconnect $~slot
+}
 function pydb_userinfo_change(~slot)
 {
   //treat a name change like a new player connected
@@ -97,10 +102,6 @@ function debug_do_lap(~slot,~time)
     sset ~msg sp_sc_func_exec why_broken 000000001 $~slot
     sp_sc_timer $~time #~msg
 }
-function pydb_make_top10()
-{
-    ehco "hello"
-}
 
 function .rank(~slot)
 {
@@ -119,9 +120,34 @@ function .rank(~slot)
     //set pydb_surf_++_$pydb_slot $~++
 }
 
+//build top10 cvars
+function pydb_make_top10()
+{
+    //cfg_name = "top10-" + mapname + ".cfg"
+    set ~counter 1
+    sp_sc_flow_while number cvar ~counter <= cvar 10
+    {
+      zero pydb_data_$~counter
+      add ~counter 1
+    }
+    sp_sc_cvar_sset ~cfg "sofplus/data/race/top10-" #GLOBAL_pydb_mapname ".cfg" 
+    sp_sc_exec_file #~cfg
+}
+//print cvars
 function .top10(~slot)
 {
-    ehco "hello"
+  set ~counter 1
+  echo "hello world"
+  sp_sc_flow_while number cvar ~counter <= val 10
+  {
+    sp_sc_flow_if text cvar pydb_data_$~counter != val ""
+    {
+      //its set with data
+      sp_sc_cvar_copy ~data pydb_data_$~counter
+      say #~data
+    }
+    add ~counter 1
+  }
 }
 
 function pydb_set_name(~name,~slot,~return_to)
@@ -170,6 +196,10 @@ function timed_event_completed(~name,~time,~spb,~s1,~s2,~s3,~s4,~slot)
     sp_sc_cvar_sset ~line [%22\\surf_db\\%22,%22total_laps%22,%22 $~name %22,%22 $~time %22,%22 $~spb %22,%22 $~s1 %22,%22 $~s2 %22,%22 $~s3 %22,%22 $~s4 %22,%22 $~slot %22]
     sp_sc_cvar_unescape ~line ~line
     echo $~line
+    sp_sc_flow_if number cvar pydb_surf_rank_$~slot <= val 10
+    {
+      sp_sc_func_exec pydb_make_top10
+    }
 }
 
 function set_map(~mapname)
@@ -178,9 +208,11 @@ function set_map(~mapname)
     sp_sv_info_frames
     sp_sc_cvar_split ~split "/" ~mapname
     set ~mapname $~split_2
+    set GLOBAL_pydb_mapname #~mapname
     sp_sc_cvar_sset ~msg [%22\\surf_db\\%22,%22map_change%22,%22 $~mapname %22]
     sp_sc_cvar_unescape ~msg ~msg
     echo $~msg
+    sp_sc_func_exec pydb_make_top10
 }
 
 function pydb_player_join(*)
@@ -195,6 +227,7 @@ function pydb_player_join(*)
         set ~name #_sp_sv_info_client_name
         set pydb_surf_name_join_$~1 #~name
         sp_sc_func_exec pydb_set_name #~name #~1 "pydb_player_join"
+        sp_sc_func_exec sound_begin $~1
     }
     else
     {
@@ -213,15 +246,11 @@ function pydb_zero_touch_times(~slot)
   sp_sc_cvar_list ~slot
   //zero section times
   set ~counter 1
-  sp_sc_cvar_find ~tmp GLOBAL_gate_*
+  sp_sc_cvar_find ~tmp touched_trigger_*_$~slot
   sp_sc_flow_while number cvar ~counter <= cvar ~tmp_0
   {
     sp_sc_cvar_copy ~ok ~tmp_$~counter
-    sp_sc_cvar_copy ~ent $~ok
-    sp_sc_cvar_list ~ent
-    sp_sc_cvar_sset ~tmp touched_trigger_$~ent _$~slot
-    sp_sc_cvar_list ~tmp
-    zero $~tmp
+    zero $~ok
     add ~counter 1
   }
   zero touched_trigger_last_$~slot 
@@ -242,7 +271,9 @@ function broadcast_new_rank(pydb_name,pydb_new_rank,pydb_slot)
 
 function pydb_set_begin_cvars(pydb_slot,pydb_pb,pydb_rank,pydb_s1,pydb_s2,pydb_s3,pydb_s4,pydb_total,pydb_first,pydb_last)
 {
-  say "WELCOME"
+  sp_sv_info_client $pydb_slot
+  sset ~msg Welcome #_sp_sv_info_client_name who is ranked < #pydb_rank >
+  say #~msg
   //
   //~rank = unranked until you complete the course
   //starting values are 999~
@@ -311,23 +342,19 @@ function pydb_surf_callback(*)
     {
       sp_sc_flow_if text cvar ~gate == val "1"
       {
-        set ~counter 1
         set ~touched_all 1
-        sp_sc_flow_while number cvar ~counter <= val 4
+        set ~counter 1
+        sp_sc_cvar_find ~tmp touched_trigger_*_$~slot
+        sp_sc_flow_while number cvar ~counter <= cvar ~tmp_0
         {
-          sp_sc_cvar_copy ~ent$~counter GLOBAL_gate_$~counter
-          //~ent3 1938173918237129837
-          sp_sc_cvar_sset ~tmp "~ent" $~counter
-          sp_sc_cvar_copy ~theEnt $~tmp
-          sp_sc_cvar_sset ~check$~counter "touched_trigger_" $~theEnt "_" $~slot
-          sp_sc_cvar_sset ~tmp "~check" $~counter
-          sp_sc_cvar_copy ~tmp $~tmp
-          add ~counter 1
-          sp_sc_flow_if text cvar ~tmp == val ""
+          sp_sc_cvar_copy ~ok ~tmp_$~counter
+          sp_sc_flow_if text cvar $~ok == val ""
           {
-            ~touched_all 0
+            set ~touched_all 0 
           }
+          add ~counter 1
         }
+        sp_sc_cvar_list ~touched_all
         sp_sc_flow_if number cvar ~touched_all == val 1
         {
           sp_sc_flow_if number cvar touched_trigger_last_$~slot == val 4
@@ -390,7 +417,7 @@ function set_section_time(~slot,~gate,~now)
   //if the last gate we touched is == to prev - continue, else we're backwards
   //last touched = 1 
   //we touch 4
-  //last touch should be ==
+  //last touch should be == 
   sp_sc_cvar_list touched_trigger_last_?
   sp_sc_flow_if number cvar ~prev != cvar touched_trigger_last_$~slot
   {
