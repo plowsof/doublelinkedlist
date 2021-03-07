@@ -22,9 +22,10 @@ sof_log_dir = "C:\\Users\\Human\\Desktop\\Raven\\SOF PLATINUM\\user-server"
 sof_log_seek = os.path.join(sof_log_dir,"sof_seek.log")
 
 sof_log_file = "C:\\Users\\Human\\Desktop\\Raven\\SOF PLATINUM\\user-server\\sof.log"
+sofplus_data_dir = "C:\\Users\\Human\\Desktop\\Raven\\SOF PLATINUM\\user-server\\sofplus\\data\\race"
 log_seek = 0
 
-add_old_data = True
+add_old_data = False
 
 def start_observer():
   print("observera")
@@ -77,8 +78,8 @@ def on_modified(event):
                   }
             lap_completed(dict_data)
           if data[1] == "map_change":
-            mapname = data[2]
-            set_map(mapname)
+            themap = data[2]
+            set_map(themap)
             #map changed
           if data[1] == "join":
             print("if we exist - update last seen")
@@ -95,7 +96,7 @@ def player_joined(data):
   global DoubleLinkedThing
   name = data["name"]
   slot = data["slot"]
-  date_now = datetime.datetime.now().date().isoformat()
+  date_now = datetime.datetime.now().replace(microsecond=0).isoformat()
   if name not in DoubleLinkedThing:
     
     #pydb_set_begin_cvars(~slot,~pb,~rank,~s1,~s2,~s3,~s4,~++,~first,~last)
@@ -121,7 +122,7 @@ def player_joined(data):
     s4 = info["s4"]
     total = info["total"]
     first_seen = info["seen_first"]
-    last_seen = info["seen_last"]
+    last_seen = date_now
   msg = [f"""sp_sc_func_exec pydb_set_begin_cvars \"{slot}\" \"{pb}\" \"{rank}\" \"{s1}\" \"{s2}\" \"{s3}\" \"{s4}\" \"{total}\" \"{first_seen}\" \"{last_seen}\""""]
   udp_send(msg)
 
@@ -159,11 +160,17 @@ def lap_completed(data):
       DoubleLinkedThing[str(name)]["time"] = pb_time
       if DoubleLinkedThing[data["name"]]["rank"] != 1:
         rank_up(data)
-        pass
+    else:
+      if int(DoubleLinkedThing[str(name)]["rank"]) <= 10:
+        #not a pb but
+        #still need to update top10
+        create_top_10()
 
 #each map has a seperate list
-def set_map(mapname):
+def set_map(themap):
   global DoubleLinkedThing
+  global mapname
+  mapname = themap
   DoubleLinkedThing = {}
   python_db = os.path.join(os.getcwd(),"python-db","mapname",mapname)
   if os.path.isfile(python_db):
@@ -186,14 +193,18 @@ def create_list():
     "s1":900,
     "s2":900,
     "s3":900,
-    "s4":900
+    "s4":900,
+    "seen_last":"hello",
+    "seen_first":"world"
   }
   OP = {
     "rank": 2,
     "below":"last",
     "above":"APJ",
     "time":900,
-    "total":1
+    "total":1,
+    "seen_last":"hello",
+    "seen_first":"world"
   }
 
   DoubleLinkedThing["first"] = "APJ"
@@ -299,7 +310,7 @@ def rank_up(data):
   while True:
     print("hello")
     print(f"is {orig_data['time']} <= {compare_to_time} <=" )
-    if orig_data["time"] <= compare_to_time:  
+    if int(orig_data["time"]) <= int(compare_to_time):  
       print(f"YES it is!")      
       if not initial_changes:
         if orig_data["below"] == "last":
@@ -313,6 +324,11 @@ def rank_up(data):
         initial_changes = True
       DoubleLinkedThing[str(compare_to_name)]["rank"] += 1
       DoubleLinkedThing[data["name"]]["rank"] -= 1
+
+      #prevent infinite loop
+      if int(DoubleLinkedThing[data["name"]]["rank"]) < 0:
+        print("rank < 0 - fatal error")
+        sys.exit()
 
       print(f"compare_toname = {compare_to_above}")
       if str(compare_to_above) == "1st":
@@ -329,12 +345,16 @@ def rank_up(data):
     else:
       print("BREAK not true <=?lo")
       break
+
+  else:
+    print("No were not top10")
   print(f"orig: {orig_rank} new: {DoubleLinkedThing[data['name']]['rank']}")
   if DoubleLinkedThing[data["name"]]["rank"] != orig_rank:
     print("ranks are != ofcourse")
     msg = [f"sp_sc_func_exec broadcast_new_rank \"{data['name']}\" \"{DoubleLinkedThing[data['name']]['rank']}\" \"{data['slot']}\""]
     udp_send(msg)
     #rank changed
+
     print(f"compare_to_name = {compare_to_above}")
     if int(DoubleLinkedThing[data["name"]]["rank"]) != 1:
       compare_to_below = DoubleLinkedThing[str(compare_to_name)]["below"]
@@ -351,12 +371,17 @@ def rank_up(data):
   else:
     print("no rank change / we're last / we're first")
 
+    #new info in top 10
+  print("are we int he top10?")
+  if int(DoubleLinkedThing[data["name"]]["rank"]) <= 10:
+    create_top_10()
+
 def save_list():
   global DoubleLinkedThing
   global mapname
   python_db = os.path.join(os.getcwd(),"python-db","mapname",mapname)
   while True:
-    time.sleep(600)
+    time.sleep(60)
     #if somebody made a pb <pbwasmade>.file -> rem
     with open(python_db, 'wb+') as f:
       pickle.dump(DoubleLinkedThing,f)
@@ -375,10 +400,55 @@ def load_old_data():
       old_data[x]["seen_first"] = old_data[x]["seen_last"]
     print(f"hello world !___ {old_data[x]['name']}")
     print(f'{old_data[x]["name"]} <----------------------APJ?????')
-    print(old_data[x])
     lap_completed(old_data[x])
   pp = pprint.PrettyPrinter(indent=4)
   pp.pprint(DoubleLinkedThing)
+def break_it():
+  dict_data = {
+                    "name":"Broken",
+                    "time":-1,
+                    "spb":1,
+                    "s1":1,
+                    "s2":1,
+                    "s3":1,
+                    "s4":1,
+                    "slot":1
+                  }
+  lap_completed(dict_data)
+  dict_data = {
+                    "name":"Broken2",
+                    "time":0,
+                    "spb":1,
+                    "s1":1,
+                    "s2":1,
+                    "s3":1,
+                    "s4":1,
+                    "slot":1
+                  }
+  lap_completed(dict_data)
+
+def create_top_10():
+  print("Create top10")
+  global DoubleLinkedThing
+  global sofplus_data_dir
+  global mapname
+  cfg_name = "top10-" + mapname + ".cfg"
+  fname = os.path.join(sofplus_data_dir,cfg_name)
+  getinfo = DoubleLinkedThing["first"]
+  with open(fname,"w+") as f:
+    for x in range(1,10):
+      name = getinfo
+      print(DoubleLinkedThing[str(getinfo)])
+      rank = x 
+      time = DoubleLinkedThing[str(getinfo)]["time"]
+      last_seen = DoubleLinkedThing[str(getinfo)]["seen_last"]
+      f.write(f"set pydb_data_{x} \"{name}\\{time}\\{last_seen}\"\n")
+      getinfo = DoubleLinkedThing[str(getinfo)]["below"]
+      if str(getinfo) == "last":
+        break
+  msg= ["sp_sc_func_exec pydb_make_top10"]
+  udp_send(msg)
+
 def main():
   global DoubleLinkedThing
   global sof_log_seek
@@ -405,7 +475,8 @@ def main():
   y.start()
   
   time.sleep(2)
-  load_old_data()
+  #break_it()
+  #load_old_data()
   #testing()
 
 if __name__ == '__main__':
