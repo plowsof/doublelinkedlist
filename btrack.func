@@ -6,19 +6,37 @@
 //----------------------------------------
 function btrack_init()
 {
+  sp_sc_func_exec spf_sc_list_onchange_add_func _sp_sv_info_flag_blue "bt_flag_state"
+  sp_sc_func_exec spf_sc_list_onchange_add_func _sp_sv_info_flag_red "bt_flag_state"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_begin "bt_map_begin"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_begin "bt_player_join_1"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_spawn "stopwatch"
-  sp_sc_func_exec spf_sc_list_add_func _sf_sv_on_flag_take "flagtake"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_ctf_flag_capture "flagcap"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_end "mapend"
 
 }
 
-function flagtake(WTF_slot)
+function bt_flag_state(~cvar)
+{
+  // r00 d h 
+  sp_sc_cvar_list $~cvar
+  sp_sc_cvar_substr ~bit $~cvar 1 1
+  sp_sc_flow_if text cvar ~bit == val 0
+  {
+    sp_sc_cvar_substr ~slot $~cvar 2 1
+  }
+  else
+  {
+    sp_sc_cvar_substr ~slot $~cvar 1 2
+  }
+  sp_sc_func_exec bt_flagtake $~slot
+}
+
+
+function bt_flagtake(~slot)
 {
   say "flag taken"
-  set flag_taken_$WTF_slot 1 
+  set flag_taken_$~slot 1 
 }
 
 //----------------------------------------
@@ -31,6 +49,25 @@ function stopwatch(~slot)
   {
     sp_sv_info_frames
     set btrack_start_frame_$~slot #_sp_sv_info_frames
+  }
+}
+
+function bt_spawn_check_name(*)
+{
+  sp_sc_flow_if number cvar ~0 == val 1
+  {
+    sp_sv_info_client $~1
+    set ~name #_sp_sv_info_client_name
+    sp_sc_func_exec pydb_set_name #~name #~1 "bt_spawn_check_name"
+  }
+  else
+  {
+    set ~name #~1
+    set ~slot #~2
+    sp_sc_flow_if text cvar ~name != cvar pydb_name_join_$~slot
+    {
+      sp_sc_func_exec bt_player_join_1 $~slot
+    }
   }
 }
 
@@ -77,7 +114,7 @@ function bt_player_join(*)
         set ~name #~1
         set ~slot #~2
         set pydb_name_join_$~slot #~name
-        sp_sc_cvar_sset ~msg [%22\\surf_db\\%22,%22join%22,%22 $~name %22,%22 $~slot %22]
+        sp_sc_cvar_sset ~msg [%22\\bt_db\\%22,%22join%22,%22 $~name %22,%22 $~slot %22]
         sp_sc_cvar_unescape ~msg ~msg
         echo $~msg
     }
@@ -113,7 +150,7 @@ function bt_set_map(~mapname)
   sp_sc_cvar_split ~split "/" ~mapname
   set ~mapname $~split_2
   set GLOBAL_bt_mapname #~mapname
-  sp_sc_cvar_sset ~msg [%22\\surf_db\\%22,%22map_change%22,%22 $~mapname %22]
+  sp_sc_cvar_sset ~msg [%22\\bt_db\\%22,%22map_change%22,%22 $~mapname %22]
   sp_sc_cvar_unescape ~msg ~msg
   echo $~msg
   sp_sc_func_exec bt_make_top10
@@ -167,6 +204,8 @@ function on_spawn_security_check(~slot)
   {
     sp_sc_func_exec set_cvars $~slot
   }
+  //also check names 
+  sp_sc_func_exec bt_spawn_check_name $~slot
 }
 //----------------------------------------
 // Save position
@@ -317,41 +356,63 @@ function .loadprev(*)
             }
             sp_sc_cvar_append ~str #~data_1 "!"
             set btrack_loadprev_pos_$~slot #~str
+            add btrack_loads_$~slot 1
           }
         }
       }
     }
   }
 }
-
-
+function pydb_bt_broadcast_new_rank(pydb_name,pydb_new_rank,pydb_slot,pydb_broadcast)
+{
+  sp_sc_flow_if number cvar pydb_broadcast == val 1
+  {
+    //~temp cvars are deleted when rcon status packet calls this function
+    sset ~msg $pydb_name is now number $pydb_new_rank
+    echo #~msg
+  }
+  set pydb_bt_rank_$pydb_slot $pydb_new_rank
+}
+function pydb_bt_set_begin_cvars(bt_slot,bt_time,bt_rank,bt_saves,bt_loads,bt_total,bt_seen)
+{
+  //saves + loads that you did on your best time run
+  set pydb_bt_rank_$bt_slot #bt_rank
+  set pydb_bt_time_$bt_slot #bt_time
+  set pydb_bt_total_$bt_slot #bt_total
+  set pydb_bt_saves_$bt_slot #bt_saves
+  set pydb_bt_loads_$bt_slot #bt_loads
+  set pydb_bt_seen_$bt_slot #bt_seen
+}
 //----------------------------------------------
 // Reset save pos and stopwatch on flag capture
 //----------------------------------------------
 function flagcap(*)
 {
-  set ~slot #~1
-  //on spawn - will check if flag capped is 1 and reset all cvars
-  set flag_capped_$~slot 1
-  sp_sv_info_frames
-  set ~frames #_sp_sv_info_frames
-  sp_sc_cvar_copy ~start btrack_start_frame_$~slot
-  zero btrack_start_frame_$~slot
-  sp_sc_cvar_math_sub ~frames #~start
-  sp_sc_cvar_copy ~loads btrack_loads_$~slot
-  sp_sc_cvar_copy ~saves btrack_saves_$~slot
-  sp_sc_cvar_copy ~name pydb_name_join_$~slot
-  sp_sc_flow_if text cvar ~loads == val ""
+  //we cant capture twice quickly before dieing ~
+  sp_sc_flow_if number cvar flag_capped_$~slot != val 1
   {
-    set ~loads 0
+    set ~slot #~1
+    //on spawn - will check if flag capped is 1 and reset all cvars
+    set flag_capped_$~slot 1
+    sp_sv_info_frames
+    set ~frames #_sp_sv_info_frames
+    sp_sc_cvar_copy ~start btrack_start_frame_$~slot
+    zero btrack_start_frame_$~slot
+    sp_sc_cvar_math_sub ~frames #~start
+    sp_sc_cvar_copy ~loads btrack_loads_$~slot
+    sp_sc_cvar_copy ~saves btrack_saves_$~slot
+    sp_sc_cvar_copy ~name pydb_name_join_$~slot
+    sp_sc_flow_if text cvar ~loads == val ""
+    {
+      set ~loads 0
+    }
+    sp_sc_flow_if text cvar ~saves == val ""
+    {
+      set ~saves 0
+    }
+    sp_sc_cvar_list ~name ~frames ~slot ~loads ~saves
+    sp_sc_func_exec bt_timed_event_completed #~name #~frames #~slot #~loads #~saves
   }
-  sp_sc_flow_if text cvar ~saves == val ""
-  {
-    set ~saves 0
-  }
-  sp_sc_cvar_list ~name ~frames ~slot ~loads ~saves
-  sp_sc_func_exec bt_timed_event_completed #~name #~frames #~slot #~loads #~saves
-
 }
 
 function bt_timed_event_completed(~name,~time,~slot,~loads,~saves)
