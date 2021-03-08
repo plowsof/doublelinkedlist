@@ -1,3 +1,5 @@
+Btrack 50% complete but <needs> on_flag_take
+
 In prodcution - improved ranking script for 8ab + more
 output:
 
