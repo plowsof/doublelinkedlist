@@ -16,6 +16,17 @@ function btrack_init()
 
 }
 
+function .rank(~slot)
+{
+  sp_sc_cvar_list pydb_bt_*_$~slot
+  //pydb_bt_rank_$~slot 
+  //pydb_bt_time_$~slot  
+  //pydb_bt_total_$~slot  
+  //pydb_bt_saves_$~slot  
+  //pydb_bt_loads_$~slot  
+  //pydb_bt_seen_$~slot  
+}
+
 function bt_flag_state(~cvar)
 {
   // r00 d h 
@@ -368,8 +379,8 @@ function pydb_bt_broadcast_new_rank(pydb_name,pydb_new_rank,pydb_slot,pydb_broad
   sp_sc_flow_if number cvar pydb_broadcast == val 1
   {
     //~temp cvars are deleted when rcon status packet calls this function
-    sset ~msg $pydb_name is now number $pydb_new_rank
-    echo #~msg
+    sset msg $pydb_name is now number $pydb_new_rank
+    echo #msg
   }
   set pydb_bt_rank_$pydb_slot $pydb_new_rank
 }
@@ -391,7 +402,9 @@ function flagcap(*)
   //we cant capture twice quickly before dieing ~
   sp_sc_flow_if number cvar flag_capped_$~slot != val 1
   {
+
     set ~slot #~1
+    add pydb_bt_total_$~slot 1 
     //on spawn - will check if flag capped is 1 and reset all cvars
     set flag_capped_$~slot 1
     sp_sv_info_frames
@@ -482,11 +495,3 @@ function zeroVel(~slot)
   sf_sv_vector_set ~vec 0 0 0
   sf_sv_ent_field_set #~ent velocity ~vec
 }
-
-//  sf_sv_player_ent ~ent_p #~1
-//  sf_sv_ent_field_set #~ent_p score #~score//
-//}
-//function move_to_bomb(*)//
-//{
-//  sf_sv_vector_set ~loc "1262" "2400" "200" 
-//  sf_sv_player_move $~1 ~loc
