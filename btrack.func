@@ -1,5 +1,7 @@
 // on damage btrack
 // - attempted c4 jumps?
+//override default flag capture sound
+//play our own depending on if a pb was made or not
 
 //----------------------------------------
 // BunnyTrack 
@@ -22,11 +24,7 @@ function bt_sound_disconnect(*)
   set ~slot $~1
   sp_sc_func_exec sound_play_exclude $~slot "weapons/mpg/out.wav"
 }
-function bt_sound_begin(*)
-{
-  set ~slot $~1
-  sp_sc_func_exec sound_play_exclude $~slot "weapons/mpg/Pullout.wav"
-}
+
 function .rank(~slot)
 {
   sp_sc_cvar_list pydb_bt_*_$~slot
@@ -282,7 +280,10 @@ function .savepos(*)
     sp_sc_timer 130 #~cmd
 
     //STRING PACKAGE 56
-    sp_sv_print_sp_client #~slot 56
+    //sp_sv_print_sp_client #~slot 56
+    sp_sc_cvar_copy ~saves btrack_saves_$~slot 
+    sset ~msg "Total saves:" #~saves
+    sp_sv_print_client $~slot #~msg
 
     sp_sc_cvar_split ~data "!" btrack_loadprev_pos_$~slot 
     sp_sc_flow_if number cvar ~data_0 <= val 5
@@ -347,12 +348,16 @@ function .loadpos(*)
           add btrack_loads_$~slot 1
 
           //STRING PACKAGE 57
-          sp_sv_print_sp_client #~slot 57
+          //sp_sv_print_sp_client #~slot 57
+          sp_sc_cvar_copy ~loads btrack_loads_$~slot 
+          sset ~msg "Total loads:" #~loads
+          sp_sv_print_client $~slot #~msg
         }
         else
         {
-          echo "you've not used .savepos"
-          sp_sv_print_sp_client #~slot 60
+          sset ~msg "you've not used .savepos"
+          sp_sv_print_client $~slot #~msg
+          //sp_sv_print_sp_client #~slot 60
         }
       }
 
@@ -401,6 +406,9 @@ function .loadprev(*)
             sp_sc_cvar_append ~str #~data_1 "!"
             set btrack_loadprev_pos_$~slot #~str
             add btrack_loads_$~slot 1
+            sp_sc_cvar_copy ~loads btrack_loads_$~slot 
+            sset ~msg "Total loads:" #~loads
+            sp_sv_print_client $~slot #~msg
           }
         }
       }
@@ -445,6 +453,17 @@ function flagcap(*)
     sp_sc_cvar_copy ~start btrack_start_frame_$~slot
     zero btrack_start_frame_$~slot
     sp_sc_cvar_math_sub ~frames #~start
+    //if frames < pb its a new pb
+    sp_sc_flow_if number cvar ~frames < cvar pydb_bt_time_$~slot
+    {
+      //we've made a pb
+      set ~new $~frames
+      sp_sc_cvar_copy ~old pydb_bt_time_$~slot
+      add ~old -$~new
+      sset ~msg "<name> beat his old time by" $~old "frames" "Time:" #~frames
+      say #~msg
+    }
+    
     sp_sc_cvar_copy ~loads btrack_loads_$~slot
     sp_sc_cvar_copy ~saves btrack_saves_$~slot
     sp_sc_cvar_copy ~name pydb_name_join_$~slot
@@ -547,6 +566,11 @@ function bt_sound_load(~slot)
 function bt_sound_save(~slot)
 {
   sp_sc_func_exec bt_entSoundPlay $~slot "impact/whip/swing.wav" 1 0 0.5
+}
+
+function bt_sound_begin(~slot)
+{
+  sp_sc_func_exec bt_entSoundPlay $~slot "weapons/mpg/Pullout.wav" 1 0 1
 }
 
 //play sound to everyone but ~slot
