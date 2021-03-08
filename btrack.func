@@ -10,12 +10,23 @@ function btrack_init()
   sp_sc_func_exec spf_sc_list_onchange_add_func _sp_sv_info_flag_red "bt_flag_state"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_begin "bt_map_begin"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_begin "bt_player_join_1"
+  sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_disconnect "bt_sound_disconnect"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_spawn "stopwatch"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_ctf_flag_capture "flagcap"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_end "mapend"
-
 }
 
+function bt_sound_disconnect(*)
+{
+  //play disc sound
+  set ~slot $~1
+  sp_sc_func_exec sound_play_exclude $~slot "weapons/mpg/out.wav"
+}
+function bt_sound_begin(*)
+{
+  set ~slot $~1
+  sp_sc_func_exec sound_play_exclude $~slot "weapons/mpg/Pullout.wav"
+}
 function .rank(~slot)
 {
   sp_sc_cvar_list pydb_bt_*_$~slot
@@ -26,7 +37,28 @@ function .rank(~slot)
   //pydb_bt_loads_$~slot  
   //pydb_bt_seen_$~slot  
 }
-
+function .top10(~slot)
+{
+  set ~counter 1
+  echo "hello world"
+  set ~counter 1
+  sp_sc_flow_while number cvar ~counter <= val 10
+  {
+    sp_sc_flow_if text cvar pydb_data_$~counter != val ""
+    {
+      //its set with data
+      sp_sc_cvar_copy ~data pydb_data_$~counter
+      sp_sc_cvar_split ~split "\" ~data
+      set ~name $~split_1
+      set ~time $~split_2
+      set ~last_seen $~split_3
+      sp_sc_cvar_unhex ~name ~name
+      sset ~msg Name: $~name Time: $~time Lastseen: $~last_seen
+      echo #~msg
+    }
+    add ~counter 1
+  }
+}
 function bt_flag_state(~cvar)
 {
   // r00 d h 
@@ -77,7 +109,8 @@ function bt_spawn_check_name(*)
     set ~slot #~2
     sp_sc_flow_if text cvar ~name != cvar pydb_name_join_$~slot
     {
-      sp_sc_func_exec bt_player_join_1 $~slot
+      //'fake' join for cvar resets
+      sp_sc_func_exec bt_player_join_1 $~slot "~"
     }
   }
 }
@@ -102,6 +135,11 @@ function bt_player_join_1(*)
 {
   say "Player joined"
   sp_sc_func_exec bt_player_join $~1
+  sp_sc_flow_if number cvar ~0 == val 1
+  {
+    //real player begin (not cvar reset)
+    sp_sc_func_exec bt_sound_begin $~1
+  }
 }
 function bt_player_join(*)
 {
@@ -169,7 +207,10 @@ function bt_set_map(~mapname)
 
 function bt_register_sounds()
 {
-  echo "register sounds"
+  sf_sv_sound_register "impact/whip/swing.wav"
+  sf_sv_sound_register "impact/whip/hit.wav"
+  sf_sv_sound_register "weapons/mpg/Pullout.wav"
+  sf_sv_sound_register "weapons/mpg/out.wav"
 }
 
 function bt_make_top10()
@@ -181,14 +222,8 @@ function bt_make_top10()
       zero pydb_data_$~counter
       add ~counter 1
     }
-    sp_sc_cvar_sset ~cfg "sofplus/data/bt/top10-" #GLOBAL_bt_mapname ".cfg" 
+    sp_sc_cvar_sset ~cfg "sofplus/data/btrack/top10-" #GLOBAL_bt_mapname ".cfg" 
     sp_sc_exec_file #~cfg
-}
-
-function bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
-{
-  sf_sv_player_ent ~ent #~slot
-  sf_sv_sound_play_ent #~sound #~ent 0 #~vol #~atten #~clbool
 }
 
 function pydb_set_name(~name,~slot,~return_to)
@@ -270,8 +305,7 @@ function .savepos(*)
       }
       set btrack_loadprev_pos_$~slot #~new
     }
-    sp_sv_sound_client #~slot 1
-    //bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
+    sp_sc_func_exec bt_sound_save $~slot
   }
   else
   {
@@ -308,8 +342,7 @@ function .loadpos(*)
           //echo #~msg
           //sp_sc_func_exec setAngles #~slot #~tmp_4 #~tmp_5
           //Sound to client
-          sp_sv_sound_client #~slot 2
-          //bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
+          sp_sc_func_exec bt_sound_load $~slot
           //total_load_slot += 1
           add btrack_loads_$~slot 1
 
@@ -355,7 +388,7 @@ function .loadprev(*)
             add btrack_loads_$~slot 1
             //STRING PACKAGE 58
             sp_sv_print_sp_client #~slot 58
-            sp_sv_sound_client #~slot 2
+            sp_sc_func_exec bt_sound_load $~slot
             //bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
             set ~str ""
             set ~counter 2
@@ -494,4 +527,42 @@ function zeroVel(~slot)
   sp_sc_cvar_copy ~ent bt_ent_slot_$~slot
   sf_sv_vector_set ~vec 0 0 0
   sf_sv_ent_field_set #~ent velocity ~vec
+}
+
+function bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
+{
+  set ~ch 0
+  sp_sv_info_client $~slot
+  sp_sc_flow_if text cvar _sp_sv_info_client_ip != val ""
+  {
+    sf_sv_player_ent ~ent #~slot
+    sf_sv_sound_play_ent #~sound #~ent #~ch #~vol #~atten #~clbool
+  }
+}
+
+function bt_sound_load(~slot)
+{
+  sp_sc_func_exec bt_entSoundPlay $~slot "impact/whip/hit.wav" 1 0 0.5
+}
+function bt_sound_save(~slot)
+{
+  sp_sc_func_exec bt_entSoundPlay $~slot "impact/whip/swing.wav" 1 0 0.5
+}
+
+//play sound to everyone but ~slot
+function sound_play_exclude(~slot, ~sound)
+{
+  set ~counter 0
+  sp_sc_flow_while number cvar ~counter < val #maxclients
+  {
+    sp_sc_flow_if number cvar ~counter != val #~slot
+    {
+      sp_sv_info_client #~counter
+      sp_sc_flow_if text cvar _sp_sv_info_client_ip != val ""
+      {
+        sp_sc_func_exec entSoundPlay #~counter #~sound 0 1 1
+      }
+    }
+    add ~counter 1
+  }
 }
