@@ -1,0 +1,431 @@
+// on damage btrack
+// - attempted c4 jumps?
+
+//----------------------------------------
+// BunnyTrack 
+//----------------------------------------
+function btrack_init()
+{
+  sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_begin "bt_map_begin"
+  sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_begin "bt_player_join_1"
+  sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_spawn "stopwatch"
+  sp_sc_func_exec spf_sc_list_add_func _sf_sv_on_flag_take "flagtake"
+  sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_ctf_flag_capture "flagcap"
+  sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_end "mapend"
+
+}
+
+function flagtake(WTF_slot)
+{
+  say "flag taken"
+  set flag_taken_$WTF_slot 1 
+}
+
+//----------------------------------------
+function stopwatch(~slot)
+{
+  echo "stopwatch"
+  sp_sc_cvar_list ~slot
+  sp_sc_func_exec on_spawn_security_check $~slot
+  sp_sc_flow_if number cvar btrack_start_frame_$~slot == val ""
+  {
+    sp_sv_info_frames
+    set btrack_start_frame_$~slot #_sp_sv_info_frames
+  }
+}
+
+function set_cvars(~slot)
+{
+  say "SET cvars"
+  set flag_taken_$~slot 0
+  set flag_capped_$~slot 0
+  set btrack_saves_$~slot 0
+  set btrack_loads_$~slot 0
+  set btrack_reset_$~slot 0
+  zero btrack_loadprev_pos_$~slot
+  set btrack_team_$~slot #_sp_sv_info_client_team
+  sf_sv_player_ent ~ent $~slot
+  set bt_ent_slot_$~slot #~ent
+  set btrack_team_$~slot #_sp_sv_info_client_team
+  zero btrack_start_frame_$~slot
+}
+
+function bt_player_join_1(*)
+{
+  say "Player joined"
+  sp_sc_func_exec bt_player_join $~1
+}
+function bt_player_join(*)
+{
+    say "the join function"
+    sp_sc_flow_if number cvar ~0 == val 1
+    {
+        //clear touched cvars
+        set ~slot $~1
+        sp_sc_func_exec set_cvars $~slot
+        //sp_sc_func_exec reset_cvars $~slot
+        //echo %22\\join\\
+        sp_sv_info_client $~1
+        set btrack_team_$~1 _sp_sv_info_client_team
+        set ~name #_sp_sv_info_client_name
+        set pydb_bt_name_join_$~1 #~name
+        sp_sc_func_exec pydb_set_name #~name #~1 "bt_player_join"
+        //sp_sc_func_exec sound_begin $~1
+    }
+    else
+    {
+        set ~name #~1
+        set ~slot #~2
+        set pydb_name_join_$~slot #~name
+        sp_sc_cvar_sset ~msg [%22\\surf_db\\%22,%22join%22,%22 $~name %22,%22 $~slot %22]
+        sp_sc_cvar_unescape ~msg ~msg
+        echo $~msg
+    }
+}
+
+function pydb_set_name(~name,~slot,~return_to)
+{
+    sp_sc_cvar_no_color ~name ~name
+    //remove spaces and .lower()
+    sp_sc_cvar_replace ~name ~name %20: %41-%5a:%61-%7a
+    sp_sc_flow_if text cvar ~name == val ""
+    {
+    set ~name "anonymous"
+    }
+    sp_sc_cvar_hex ~fname ~name
+    sp_sc_func_exec $~return_to #~fname #~slot "~"
+}
+
+function bt_map_begin()
+{
+  //load pickled python dictionary for this map
+  sp_sc_func_exec bt_set_map #_sp_sv_info_map_current
+  sp_sc_func_exec bt_register_sounds
+  sp_sc_func_exec bt_make_top10
+  sf_sv_sound_override "/enemy/dth/*" "" ""
+  sf_sv_sound_override "/impact/gore/*" "" ""
+  sf_sv_sound_override "/impact/player/*" "" ""
+  set btrack_mapend 0
+}
+
+function bt_set_map(~mapname)
+{
+  sp_sc_cvar_split ~split "/" ~mapname
+  set ~mapname $~split_2
+  set GLOBAL_bt_mapname #~mapname
+  sp_sc_cvar_sset ~msg [%22\\surf_db\\%22,%22map_change%22,%22 $~mapname %22]
+  sp_sc_cvar_unescape ~msg ~msg
+  echo $~msg
+  sp_sc_func_exec bt_make_top10
+}
+
+function bt_register_sounds()
+{
+  echo "register sounds"
+}
+
+function bt_make_top10()
+{
+    //cfg_name = "top10-" + mapname + ".cfg"
+    set ~counter 1
+    sp_sc_flow_while number cvar ~counter <= cvar 10
+    {
+      zero pydb_data_$~counter
+      add ~counter 1
+    }
+    sp_sc_cvar_sset ~cfg "sofplus/data/bt/top10-" #GLOBAL_bt_mapname ".cfg" 
+    sp_sc_exec_file #~cfg
+}
+
+function bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
+{
+  sf_sv_player_ent ~ent #~slot
+  sf_sv_sound_play_ent #~sound #~ent 0 #~vol #~atten #~clbool
+}
+
+function pydb_set_name(~name,~slot,~return_to)
+{
+    sp_sc_cvar_no_color ~name ~name
+    //remove spaces and .lower()
+    sp_sc_cvar_replace ~name ~name %20: %41-%5a:%61-%7a
+    sp_sc_flow_if text cvar ~name == val ""
+    {
+    set ~name "anonymous"
+    }
+    sp_sc_cvar_hex ~fname ~name
+    sp_sc_func_exec $~return_to #~fname #~slot "~"
+}
+
+//----------------------------------------
+// Detect team change and reset saved position
+//----------------------------------------
+function on_spawn_security_check(~slot)
+{
+  //swap teams zero cvars <prevent swap team, load pos to enemy spawn>
+  sp_sv_info_client $~slot
+  sp_sc_flow_if text cvar _sp_sv_info_client_team != val btrack_team_$~slot
+  {
+    sp_sc_func_exec set_cvars $~slot
+  }
+}
+//----------------------------------------
+// Save position
+//----------------------------------------
+function .savepos(*)
+{
+  sp_sc_flow_if number cvar btrack_mapend == val 0
+  {
+    set ~slot #~1
+    //Get slots x y z coordinates
+    sp_sc_func_exec getOrigin #~slot
+    set ~o_x #GLOBAL_get_origin_x
+    set ~o_y #GLOBAL_get_origin_y
+    set ~o_z #GLOBAL_get_origin_z
+    //Get angles
+    sp_sc_func_exec getAngles #~slot
+    set ~a_x #GLOBAL_get_angles_x
+    set ~a_y #GLOBAL_get_angles_y
+    
+    sp_sc_cvar_sset ~saveData #~o_x ":" #~o_y ":" #~o_z ":" #~a_x ":" #~a_y
+    sp_sc_cvar_list ~saveData
+    
+    //total_saves_slot += 1
+    add btrack_saves_$~slot 1
+    //color the player quickly so others see we saved
+    sf_sv_player_paint #~slot 0 1 0 1
+    sset ~cmd sf_sv_player_paint #~slot 1 1 1 1 
+    sp_sc_timer 130 #~cmd
+
+    //STRING PACKAGE 56
+    sp_sv_print_sp_client #~slot 56
+
+    sp_sc_cvar_split ~data "!" btrack_loadprev_pos_$~slot 
+    sp_sc_flow_if number cvar ~data_0 <= val 5
+    {
+      //Append position
+      sp_sc_cvar_copy ~tmp btrack_loadprev_pos_$~slot
+      sp_sc_cvar_append ~saveData "!" #~tmp
+      set btrack_loadprev_pos_$~slot #~saveData
+    }
+    else
+    {
+      //Max stored positions reached. Pop 1 off the end. Add new to the start
+      sp_sc_cvar_sset ~new #~saveData "!"
+      set ~counter 1
+      sp_sc_flow_while number cvar ~counter <= val 4
+      {
+        sp_sc_cvar_copy ~tmp ~data_$~counter 
+        sp_sc_cvar_append ~new #~tmp "!"
+        add ~counter 1
+      }
+      set btrack_loadprev_pos_$~slot #~new
+    }
+    sp_sv_sound_client #~slot 1
+    //bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
+  }
+  else
+  {
+    //maybe to stop spamming save sound at end of map
+    echo "map ended"
+  }
+}
+
+//----------------------------------------
+// Load position
+//----------------------------------------
+function .loadpos(*)
+{
+  set ~slot #~1
+  sp_sc_flow_if number cvar flag_taken_$~slot == val 0
+  {
+    sp_sc_flow_if number cvar btrack_mapend == val 0
+    {
+      sp_sc_flow_if number cvar flag_capped_$~slot == val 0
+      {
+        sp_sc_flow_if text cvar btrack_loadprev_pos_$~slot != val ""
+        {
+          //refuse to load if nothing saved
+          //teleport to saved x y z
+          sp_sc_cvar_split ~data "!" btrack_loadprev_pos_$~slot
+          sp_sc_cvar_split ~tmp ":" ~data_1
+          sp_sc_cvar_list ~tmp*
+          //reset velocity
+          sp_sc_func_exec zeroVel #~slot
+          //teleport player
+          sp_sc_func_exec setOrigin #~slot #~tmp_1 #~tmp_2 #~tmp_3
+          //reset viewangles (currently only YAW is set)
+          //sset ~msg "tmp4:" #~tmp_4 "tmp5:" #~tmp_5
+          //echo #~msg
+          //sp_sc_func_exec setAngles #~slot #~tmp_4 #~tmp_5
+          //Sound to client
+          sp_sv_sound_client #~slot 2
+          //bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
+          //total_load_slot += 1
+          add btrack_loads_$~slot 1
+
+          //STRING PACKAGE 57
+          sp_sv_print_sp_client #~slot 57
+        }
+        else
+        {
+          echo "you've not used .savepos"
+          sp_sv_print_sp_client #~slot 60
+        }
+      }
+
+    }
+  } 
+}
+
+//----------------------------------------------------------
+// Loop the 5 previous saved positions incase of an accident
+//----------------------------------------------------------
+function .loadprev(*)
+{
+  //sending is to 000
+  set ~slot #~1
+  sp_sc_flow_if number cvar flag_taken_$~slot == val 0
+  {
+    sp_sc_flow_if number cvar btrack_mapend == val 0
+    {
+      sp_sc_flow_if number cvar flag_capped_$~slot == val 0
+      {
+        sp_sc_flow_if text cvar btrack_loadprev_pos_$~slot != val ""
+        {
+          sp_sc_cvar_split ~data "!" btrack_loadprev_pos_$~slot
+          sp_sc_cvar_list ~data_*
+          set ~loadpos #~data_2
+          sp_sc_flow_if number cvar ~data_0 > val 1
+          {
+            sp_sc_cvar_split ~tmp ":" ~loadpos
+            sp_sc_func_exec setOrigin #~slot #~tmp_1 #~tmp_2 #~tmp_3
+            //reset viewangles (yaw only (?))
+            //sp_sc_cvar_list ~tmp_4 ~tmp_5
+            //sp_sc_func_exec setAngles #~slot #~tmp_4 #~tmp_5
+            add btrack_loads_$~slot 1
+            //STRING PACKAGE 58
+            sp_sv_print_sp_client #~slot 58
+            sp_sv_sound_client #~slot 2
+            //bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
+            set ~str ""
+            set ~counter 2
+            sp_sc_flow_while number cvar ~counter <= val #~data_0
+            {
+              sp_sc_cvar_copy ~tmp ~data_$~counter 
+              sp_sc_cvar_append ~str #~tmp "!"
+              add ~counter 1
+            }
+            sp_sc_cvar_append ~str #~data_1 "!"
+            set btrack_loadprev_pos_$~slot #~str
+          }
+        }
+      }
+    }
+  }
+}
+
+
+//----------------------------------------------
+// Reset save pos and stopwatch on flag capture
+//----------------------------------------------
+function flagcap(*)
+{
+  set ~slot #~1
+  //on spawn - will check if flag capped is 1 and reset all cvars
+  set flag_capped_$~slot 1
+  sp_sv_info_frames
+  set ~frames #_sp_sv_info_frames
+  sp_sc_cvar_copy ~start btrack_start_frame_$~slot
+  zero btrack_start_frame_$~slot
+  sp_sc_cvar_math_sub ~frames #~start
+  sp_sc_cvar_copy ~loads btrack_loads_$~slot
+  sp_sc_cvar_copy ~saves btrack_saves_$~slot
+  sp_sc_cvar_copy ~name pydb_name_join_$~slot
+  sp_sc_flow_if text cvar ~loads == val ""
+  {
+    set ~loads 0
+  }
+  sp_sc_flow_if text cvar ~saves == val ""
+  {
+    set ~saves 0
+  }
+  sp_sc_cvar_list ~name ~frames ~slot ~loads ~saves
+  sp_sc_func_exec bt_timed_event_completed #~name #~frames #~slot #~loads #~saves
+
+}
+
+function bt_timed_event_completed(~name,~time,~slot,~loads,~saves)
+{
+    sp_sc_cvar_sset ~line [%22\\bt_db\\%22,%22bt_finish%22,%22 $~name %22,%22 $~time %22,%22 $~slot %22,%22 $~loads %22,%22 $~saves %22]
+    sp_sc_cvar_unescape ~line ~line
+    echo $~line
+    sp_sc_flow_if number cvar pydb_bt_rank_$~slot <= val 10
+    {
+      sp_sc_func_exec bt_make_top10
+    }
+}
+
+//--------------------------------------------
+// Reset Cvars
+//--------------------------------------------
+function reset_cvars(*)
+{
+  sp_sc_func_exec set_cvars $~1
+}
+
+function .help(*)
+{
+  set ~slot #~1
+  sp_sv_print_sp_client #~slot 55
+}
+
+function mapend()
+{
+  set btrack_mapend 1
+}
+
+//------------------------------
+// Extra helpers to reduce crap
+//------------------------------
+//set angles not functional 
+function setOrigin(~slot,~x,~y,~z)
+{
+  sf_sv_player_ent ~ent #~slot
+  sf_sv_vector_set ~vec $~x $~y $~z
+  sf_sv_ent_field_set #~ent origin ~vec
+  sp_sc_cvar_list ~x ~y ~z
+}
+
+function getOrigin(~slot)
+{
+  sp_sc_cvar_copy ~ent bt_ent_slot_$~slot
+  sf_sv_ent_field_get ~out #~ent origin
+  set GLOBAL_get_origin_x #~out_1
+  set GLOBAL_get_origin_y #~out_2
+  set GLOBAL_get_origin_z #~out_3
+  sp_sc_cvar_list GLOBAL_get*
+}
+
+function getAngles(~slot)
+{
+  sp_sc_cvar_copy ~ent_p bt_ent_slot_$~slot
+  sf_sv_ent_field_get ~out #~ent_p viewangles
+  set GLOBAL_get_angles_x #~out_1
+  set GLOBAL_get_angles_y #~out_2
+}
+
+
+function zeroVel(~slot)
+{
+  sp_sc_cvar_copy ~ent bt_ent_slot_$~slot
+  sf_sv_vector_set ~vec 0 0 0
+  sf_sv_ent_field_set #~ent velocity ~vec
+}
+
+//  sf_sv_player_ent ~ent_p #~1
+//  sf_sv_ent_field_set #~ent_p score #~score//
+//}
+//function move_to_bomb(*)//
+//{
+//  sf_sv_vector_set ~loc "1262" "2400" "200" 
+//  sf_sv_player_move $~1 ~loc
