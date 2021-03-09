@@ -86,10 +86,22 @@ function stopwatch(~slot)
   echo "stopwatch"
   sp_sc_cvar_list ~slot
   sp_sc_func_exec on_spawn_security_check $~slot
+  //reset timer if we have no saves/loads
   sp_sc_flow_if number cvar btrack_start_frame_$~slot == val ""
   {
     sp_sv_info_frames
     set btrack_start_frame_$~slot #_sp_sv_info_frames
+  }
+  else
+  {
+    sp_sc_flow_if number cvar btrack_loads_$~slot == val 0
+    {
+      sp_sc_flow_if number cvar btrack_saves_$~slot == val 0
+      {
+      sp_sv_info_frames
+      set btrack_start_frame_$~slot #_sp_sv_info_frames
+      }
+    }
   }
 }
 
@@ -116,6 +128,7 @@ function bt_spawn_check_name(*)
 function set_cvars(~slot)
 {
   say "SET cvars"
+  sp_sv_info_client $~slot
   set flag_taken_$~slot 0
   set flag_capped_$~slot 0
   set btrack_saves_$~slot 0
@@ -244,7 +257,7 @@ function on_spawn_security_check(~slot)
 {
   //swap teams zero cvars <prevent swap team, load pos to enemy spawn>
   sp_sv_info_client $~slot
-  sp_sc_flow_if text cvar _sp_sv_info_client_team != val btrack_team_$~slot
+  sp_sc_flow_if text cvar _sp_sv_info_client_team != cvar btrack_team_$~slot
   {
     sp_sc_func_exec set_cvars $~slot
   }
