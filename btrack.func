@@ -532,18 +532,24 @@ function flagcap(*)
     zero btrack_start_frame_$~slot
     sp_sc_cvar_math_sub ~frames #~start
     //if frames < pb its a new pb
+    sp_sv_info_client $~slot
+    set ~name #_sp_sv_info_client_name
     sp_sc_flow_if number cvar ~frames < cvar pydb_bt_time_$~slot
     {
       //we've made a pb
       set ~new $~frames
       sp_sc_cvar_copy ~old pydb_bt_time_$~slot
       add ~old -$~new
-      sp_sv_info_client $~slot
-      set ~name #_sp_sv_info_client_name
       sp_sc_cvar_sset ~msg #~name " %03beat their old time by %06~%03[%02" $~old "%03]%06~%03 " "Time:%06~%03[%02" #~frames "%03]%06~"
       sp_sc_cvar_unescape ~msg ~msg
       sp_sv_print_broadcast #~msg 
       set pydb_bt_time_$~slot #~frames
+    }
+    else
+    {
+      sp_sc_cvar_sset ~msg #~name " %03 Finished with a time of: %06~%03[%02" #~frames "%03]%06~"
+      sp_sc_cvar_unescape ~msg ~msg
+      sp_sv_print_broadcast #~msg 
     }
     
     sp_sc_cvar_copy ~loads btrack_loads_$~slot
@@ -564,13 +570,14 @@ function flagcap(*)
 
 function bt_timed_event_completed(~name,~time,~slot,~loads,~saves)
 {
-    sp_sc_cvar_sset ~line [%22\\bt_db\\%22,%22bt_finish%22,%22 $~name %22,%22 $~time %22,%22 $~slot %22,%22 $~loads %22,%22 $~saves %22]
-    sp_sc_cvar_unescape ~line ~line
-    echo $~line
-    sp_sc_flow_if number cvar pydb_bt_rank_$~slot <= val 10
-    {
-      sp_sc_func_exec bt_make_top10
-    }
+  sp_sc_cvar_list ~saves ~loads
+  sp_sc_cvar_sset ~line [%22\\bt_db\\%22,%22bt_finish%22,%22 $~name %22,%22 $~time %22,%22 $~slot %22,%22 $~loads %22,%22 $~saves %22]
+  sp_sc_cvar_unescape ~line ~line
+  echo $~line
+  sp_sc_flow_if number cvar pydb_bt_rank_$~slot <= val 10
+  {
+    sp_sc_func_exec bt_make_top10
+  }
 }
 
 //--------------------------------------------
