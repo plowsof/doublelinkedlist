@@ -25,15 +25,47 @@ function bt_sound_disconnect(*)
   sp_sc_func_exec sound_play_exclude $~slot "weapons/mpg/out.wav"
 }
 
-function .rank(~slot)
+function .rank(*)
 {
-  sp_sc_cvar_list pydb_bt_*_$~slot
-  //pydb_bt_rank_$~slot 
-  //pydb_bt_time_$~slot  
-  //pydb_bt_total_$~slot  
-  //pydb_bt_saves_$~slot  
-  //pydb_bt_loads_$~slot  
-  //pydb_bt_seen_$~slot  
+  sp_sc_cvar_list ~*
+  sp_sc_flow_if number cvar ~0 == val 1
+  {
+    set ~slot $~1
+  }
+  else
+  {
+    set ~slot $~2
+  }
+  sp_sv_info_client $~slot
+  sp_sc_flow_if text cvar _sp_sv_info_client_ip != val ""
+  {
+    sp_sc_cvar_copy ~rank pydb_bt_rank_$~slot 
+    sp_sc_cvar_copy ~time pydb_bt_time_$~slot  
+    sp_sc_cvar_copy ~total pydb_bt_total_$~slot  
+    sp_sc_cvar_copy ~saves pydb_bt_saves_$~slot  
+    sp_sc_cvar_copy ~loads pydb_bt_loads_$~slot  
+    sp_sc_cvar_copy ~seen pydb_bt_seen_$~slot
+    sp_sc_cvar_sset ~msg "Map: " #_sp_sv_info_map_current
+    sp_sc_cvar_append_newline ~msg 
+    sp_sc_cvar_append ~msg "Name: " #_sp_sv_info_client_name
+    sp_sc_cvar_append_newline ~msg
+    sp_sc_cvar_append ~msg "Rank: " #~rank
+    sp_sc_cvar_append_newline ~msg
+    sp_sc_cvar_append ~msg "Time: " #~time
+    sp_sc_cvar_append_newline ~msg
+    sp_sc_cvar_append ~msg "Total: " #~total
+    sp_sc_cvar_append_newline ~msg
+    sp_sc_cvar_append ~msg "Saves: " #~saves
+    sp_sc_cvar_append_newline ~msg
+    sp_sc_cvar_append ~msg "Loads: " #~loads
+    sp_sc_cvar_append_newline ~msg
+    sp_sc_cvar_append ~msg "1st Seen: " #~seen
+    sp_sv_print_client $~1 #~msg
+  }
+  else
+  {
+    echo "enter a valid slot"
+  }
 }
 function .top10(~slot)
 {
@@ -505,6 +537,7 @@ function pydb_bt_broadcast_new_rank(pydb_name,pydb_new_rank,pydb_slot,pydb_broad
 }
 function pydb_bt_set_begin_cvars(bt_slot,bt_time,bt_rank,bt_saves,bt_loads,bt_total,bt_seen)
 {
+  say "begin"
   //saves + loads that you did on your best time run
   set pydb_bt_rank_$bt_slot #bt_rank
   set pydb_bt_time_$bt_slot #bt_time
