@@ -136,7 +136,9 @@ def lap_completed(data):
     #FIXME 
     DoubleLinkedThing[str(name)]["total"] += 1
     if int(pb) < int(DoubleLinkedThing[str(name)]["time"]):
-      DoubleLinkedThing[str(name)]["time"] = time
+      print("We made a PB!")
+      DoubleLinkedThing[str(name)]["time"] = pb
+      print(f"loads = {loads} saves = {saves}")
       DoubleLinkedThing[str(name)]["saves"] = saves
       DoubleLinkedThing[str(name)]["loads"] = loads
     DoubleLinkedThing[str(name)]["seen_last"] = date_now
@@ -147,6 +149,8 @@ def lap_completed(data):
         #not a pb but
         #still need to update top10
         create_top_10()
+    #set new values for players .rank info
+    player_joined(DoubleLinkedThing[str(name)])
 
 #each map has a seperate list
 #save old one
