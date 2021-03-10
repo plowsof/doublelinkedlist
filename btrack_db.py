@@ -16,7 +16,7 @@ from getstatus import udp_send
 
 DoubleLinkedThing = {}
 #pickled lists for each map
-mapname = "8ab"
+mapname = ""
 
 sof_log_dir = "C:\\Users\\Human\\Desktop\\Raven\\SOF PLATINUM\\user-server"
 sof_log_seek = os.path.join(sof_log_dir,"sof_seek.log")
@@ -55,7 +55,8 @@ def on_modified(event):
   if "sof.log" in event.src_path:
     print("modified")
     time.sleep(0.1)
-    with open(event.src_path, "r") as f:
+    #encoding="utf-8"
+    with open(event.src_path, "r", encoding="latin-1") as f:
       f.seek(int(log_seek))
       #probably 1 line , but just in case
       lines = f.readlines()
@@ -329,13 +330,16 @@ def create_top_10():
       name = getinfo
       print(DoubleLinkedThing[str(getinfo)])
       rank = x 
-      time = DoubleLinkedThing[str(getinfo)]["time"]
+      pb = DoubleLinkedThing[str(getinfo)]["time"]
+      print(f"pb at stting:{pb}")
+      saves = DoubleLinkedThing[str(getinfo)]["saves"]
+      loads = DoubleLinkedThing[str(getinfo)]["loads"]
       last_seen = DoubleLinkedThing[str(getinfo)]["seen_last"]
-      f.write(f"set pydb_data_{x} \"{name}\\{time}\\{last_seen}\"\n")
+      f.write(f"set pydb_data_{x} \"{name}\\{pb}\\{saves}\\{loads}\\{last_seen}\"\n")
       getinfo = DoubleLinkedThing[str(getinfo)]["below"]
       if str(getinfo) == "last":
         break
-  msg= ["sp_sc_func_exec pydb_make_top10"]
+  msg= ["sp_sc_func_exec bt_make_top10"]
   udp_send(msg)
 
 def main():
@@ -345,6 +349,8 @@ def main():
   global mapname
   size = 0
   create_list()
+  msg = [f"_sp_sv_info_map_current"]
+  mapname = udp_send(msg).split("/")[1].split("\"")[0]
   set_map(mapname)
   print("original list:")
   pp = pprint.PrettyPrinter(indent=4)
