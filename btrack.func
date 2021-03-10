@@ -39,44 +39,74 @@ function .top10(~slot)
 {
   set ~counter 1
   echo "hello world"
+  set ~spaces "                             "
+  sp_sc_cvar_nbsp ~spaces ~spaces
+  set ~line_0 3
   set ~counter 1
+  set ~line_1 "|Name            |Time  |Saves|Loads|"
+  set ~line_2 "|%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a|%9a%9a%9a%9a%9a%9a|%9a%9a%9a%9a%9a|%9a%9a%9a%9a%9a|"
   sp_sc_flow_while number cvar ~counter <= val 10
   {
     sp_sc_flow_if text cvar pydb_data_$~counter != val ""
     {
+
       //its set with data
       sp_sc_cvar_copy ~data pydb_data_$~counter
       sp_sc_cvar_split ~split "\" ~data
-      set ~name $~split_1
-      set ~time $~split_2
-      set ~last_seen $~split_3
-      sp_sc_cvar_unhex ~name ~name
-      sset ~msg Name: $~name Time: $~time Lastseen: $~last_seen
-      echo #~msg
+      set ~name $~split_1;sp_sc_cvar_unhex ~name ~name;sp_sc_cvar_append ~name #~spaces;
+      echo "error?"
+      sp_sc_cvar_list ~split_2
+      set ~time $~split_2;sp_sc_cvar_append ~time #~spaces
+      echo "time"
+      sp_sc_cvar_list ~time
+      set ~saves $~split_3;sp_sc_cvar_append ~saves #~spaces
+      set ~loads $~split_4;sp_sc_cvar_append ~loads #~spaces
+      set ~last_seen $~split_5
+      sp_sc_cvar_substr ~sub_name ~name 0 16
+      sp_sc_cvar_substr ~sub_time ~time 0 6
+      sp_sc_cvar_substr ~sub_saves ~saves 0 5
+      sp_sc_cvar_substr ~sub_loads ~loads 0 5
+      sp_sc_cvar_sset ~line_$~line_0 "|" #~sub_name "|" #~sub_time "|" #~sub_saves "|" #~sub_loads "|"
+      add ~line_0 1
     }
     add ~counter 1
   }
+  set ~line_$~line_0 "%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a"
+  set ~counter 1
+  sset ~msg ""
+  sp_sc_flow_while number cvar ~counter <= val $~line_0
+  {
+    sp_sc_cvar_copy ~l ~line_$~counter
+    sp_sc_cvar_append ~msg #~l
+    sp_sc_cvar_append_newline ~msg
+    add ~counter 1
+  }
+  sp_sc_cvar_unescape ~msg ~msg
+  sp_sv_print_broadcast #~msg
 }
 function bt_flag_state(~cvar)
 {
   // r00 d h 
   sp_sc_cvar_list $~cvar
-  sp_sc_cvar_substr ~bit $~cvar 1 1
-  sp_sc_flow_if text cvar ~bit == val 0
+  sp_sc_cvar_substr ~r $~cvar 0 1
+  sp_sc_flow_if text cvar ~r == val "r"
   {
-    sp_sc_cvar_substr ~slot $~cvar 2 1
-  }
-  else
-  {
-    sp_sc_cvar_substr ~slot $~cvar 1 2
-  }
-  sp_sc_func_exec bt_flagtake $~slot
+    sp_sc_cvar_substr ~bit $~cvar 1 1
+    sp_sc_flow_if text cvar ~bit == val 0
+    {
+      sp_sc_cvar_substr ~slot $~cvar 2 1
+    }
+    else
+    {
+      sp_sc_cvar_substr ~slot $~cvar 1 2
+    }
+    sp_sc_func_exec bt_flagtake $~slot
+    }
 }
 
 
 function bt_flagtake(~slot)
 {
-  say "flag taken"
   set flag_taken_$~slot 1 
 }
 
@@ -84,16 +114,22 @@ function bt_flagtake(~slot)
 function stopwatch(~slot)
 {
   echo "stopwatch"
-  sp_sc_cvar_list ~slot
   sp_sc_func_exec on_spawn_security_check $~slot
-  //reset timer if we have no saves/loads
   sp_sc_flow_if number cvar btrack_start_frame_$~slot == val ""
   {
     sp_sv_info_frames
     set btrack_start_frame_$~slot #_sp_sv_info_frames
   }
+  sp_sc_flow_if number cvar flag_capped_$~slot == val 1
+  {
+    sp_sc_func_exec set_cvars $~slot
+    
+    sp_sv_info_frames
+    set btrack_start_frame_$~slot #_sp_sv_info_frames
+  }
   else
   {
+    //reset timer if we have no saves/loads
     sp_sc_flow_if number cvar btrack_loads_$~slot == val 0
     {
       sp_sc_flow_if number cvar btrack_saves_$~slot == val 0
@@ -127,14 +163,18 @@ function bt_spawn_check_name(*)
 
 function set_cvars(~slot)
 {
-  say "SET cvars"
   sp_sv_info_client $~slot
   set flag_taken_$~slot 0
   set flag_capped_$~slot 0
   set btrack_saves_$~slot 0
   set btrack_loads_$~slot 0
   set btrack_reset_$~slot 0
-  zero btrack_loadprev_pos_$~slot
+  set btrack_prev_pos_num_$~slot 1
+  zero btrack_loadprev_pos_1_$~slot
+  zero btrack_loadprev_pos_2_$~slot
+  zero btrack_loadprev_pos_3_$~slot
+  zero btrack_loadprev_pos_4_$~slot
+  zero btrack_loadprev_pos_5_$~slot
   set btrack_team_$~slot #_sp_sv_info_client_team
   sf_sv_player_ent ~ent $~slot
   set bt_ent_slot_$~slot #~ent
@@ -144,7 +184,6 @@ function set_cvars(~slot)
 
 function bt_player_join_1(*)
 {
-  say "Player joined"
   sp_sc_func_exec bt_player_join $~1
   sp_sc_flow_if number cvar ~0 == val 1
   {
@@ -154,7 +193,6 @@ function bt_player_join_1(*)
 }
 function bt_player_join(*)
 {
-    say "the join function"
     sp_sc_flow_if number cvar ~0 == val 1
     {
         //clear touched cvars
@@ -199,12 +237,19 @@ function bt_map_begin()
   sp_sc_func_exec bt_set_map #_sp_sv_info_map_current
   sp_sc_func_exec bt_register_sounds
   sp_sc_func_exec bt_make_top10
-  sf_sv_sound_override "/enemy/dth/*" "" ""
-  sf_sv_sound_override "/impact/gore/*" "" ""
-  sf_sv_sound_override "/impact/player/*" "" ""
+  //override currently broken
+  sf_sv_sound_override "enemy/dth/*" "null.wav" ""
+  sf_sv_sound_override "impact/gore/*" "null.wav" ""
+  sf_sv_sound_override "impact/player/*" "null.wav" ""
   set btrack_mapend 0
 }
-
+function .rems(~slot)
+{
+  sp_sc_func_exec sf_remove_sound "*"
+  sp_sc_func_exec sf_remove_sound "enemy/dth/*"
+  sp_sc_func_exec sf_remove_sound "impact/gore/*"
+  sp_sc_func_exec sf_remove_sound "impact/player/*"
+}
 function bt_set_map(~mapname)
 {
   sp_sc_cvar_split ~split "/" ~mapname
@@ -220,7 +265,7 @@ function bt_register_sounds()
 {
   sf_sv_sound_register "impact/whip/swing.wav"
   sf_sv_sound_register "impact/whip/hit.wav"
-  sf_sv_sound_register "weapons/mpg/Pullout.wav"
+  sf_sv_sound_register "weapons/mpg/pullout.wav"
   sf_sv_sound_register "weapons/mpg/out.wav"
 }
 
@@ -228,7 +273,7 @@ function bt_make_top10()
 {
     //cfg_name = "top10-" + mapname + ".cfg"
     set ~counter 1
-    sp_sc_flow_while number cvar ~counter <= cvar 10
+    sp_sc_flow_while number cvar ~counter <= val 10
     {
       zero pydb_data_$~counter
       add ~counter 1
@@ -272,6 +317,7 @@ function .savepos(*)
   sp_sc_flow_if number cvar btrack_mapend == val 0
   {
     set ~slot #~1
+    set btrack_prev_pos_num_$~slot 1
     //Get slots x y z coordinates
     sp_sc_func_exec getOrigin #~slot
     set ~o_x #GLOBAL_get_origin_x
@@ -283,7 +329,7 @@ function .savepos(*)
     set ~a_y #GLOBAL_get_angles_y
     
     sp_sc_cvar_sset ~saveData #~o_x ":" #~o_y ":" #~o_z ":" #~a_x ":" #~a_y
-    sp_sc_cvar_list ~saveData
+    //sp_sc_cvar_list ~saveData
     
     //total_saves_slot += 1
     add btrack_saves_$~slot 1
@@ -295,29 +341,47 @@ function .savepos(*)
     //STRING PACKAGE 56
     //sp_sv_print_sp_client #~slot 56
     sp_sc_cvar_copy ~saves btrack_saves_$~slot 
-    sset ~msg "Total saves:" #~saves
+    sp_sc_cvar_sset ~msg "%03Position Saved! %06~%02[%03" #~saves "%02]%06~"
+    sp_sc_cvar_unescape ~msg ~msg
     sp_sv_print_client $~slot #~msg
 
-    sp_sc_cvar_split ~data "!" btrack_loadprev_pos_$~slot 
-    sp_sc_flow_if number cvar ~data_0 <= val 5
+
+    set ~counter 1
+    set ~new_data #~saveData
+    sp_sc_flow_while number cvar ~counter <= val 5
     {
-      //Append position
-      sp_sc_cvar_copy ~tmp btrack_loadprev_pos_$~slot
-      sp_sc_cvar_append ~saveData "!" #~tmp
-      set btrack_loadprev_pos_$~slot #~saveData
-    }
-    else
-    {
-      //Max stored positions reached. Pop 1 off the end. Add new to the start
-      sp_sc_cvar_sset ~new #~saveData "!"
-      set ~counter 1
-      sp_sc_flow_while number cvar ~counter <= val 4
+      set ~below #~counter
+      add ~below 1
+      sp_sc_cvar_sset ~prev_cvar btrack_loadprev_pos_$~counter _$~slot
+      sset ~msg copy $~prev_cvar 
+      sp_sc_cvar_copy ~prev $~prev_cvar
+      set ~continue 1
+      sp_sc_flow_if text cvar ~prev == val ""
       {
-        sp_sc_cvar_copy ~tmp ~data_$~counter 
-        sp_sc_cvar_append ~new #~tmp "!"
-        add ~counter 1
+        sp_sc_flow_if number cvar ~counter == val 1
+        {
+          set $~prev_cvar #~new_data
+          set ~continue 0
+        }
       }
-      set btrack_loadprev_pos_$~slot #~new
+      else
+      {
+        set ~continue 1
+      }
+      sp_sc_flow_if number cvar ~continue == val 1
+      {
+        //~prev = old 1
+        //replace ~prev with new value but save before doing it
+        set ~saved #~prev
+        set $~prev_cvar #~new_data
+        sp_sc_cvar_sset ~new_data btrack_loadprev_pos_$~below _$~slot
+        set ~new_data #~saved
+      }
+      else
+      {
+        set ~counter 6
+      }
+      add ~counter 1
     }
     sp_sc_func_exec bt_sound_save $~slot
   }
@@ -326,6 +390,7 @@ function .savepos(*)
     //maybe to stop spamming save sound at end of map
     echo "map ended"
   }
+  sp_sc_cvar_list btrack_loadprev_pos_?_0
 }
 
 //----------------------------------------
@@ -340,12 +405,11 @@ function .loadpos(*)
     {
       sp_sc_flow_if number cvar flag_capped_$~slot == val 0
       {
-        sp_sc_flow_if text cvar btrack_loadprev_pos_$~slot != val ""
+        sp_sc_flow_if text cvar btrack_loadprev_pos_1_$~slot != val ""
         {
           //refuse to load if nothing saved
           //teleport to saved x y z
-          sp_sc_cvar_split ~data "!" btrack_loadprev_pos_$~slot
-          sp_sc_cvar_split ~tmp ":" ~data_1
+          sp_sc_cvar_split ~tmp ":" btrack_loadprev_pos_1_$~slot
           sp_sc_cvar_list ~tmp*
           //reset velocity
           sp_sc_func_exec zeroVel #~slot
@@ -363,7 +427,8 @@ function .loadpos(*)
           //STRING PACKAGE 57
           //sp_sv_print_sp_client #~slot 57
           sp_sc_cvar_copy ~loads btrack_loads_$~slot 
-          sset ~msg "Total loads:" #~loads
+          sp_sc_cvar_sset ~msg "%03Position Loaded! %06~%02[%03" #~loads "%02]%06~"
+          sp_sc_cvar_unescape ~msg ~msg
           sp_sv_print_client $~slot #~msg
         }
         else
@@ -391,37 +456,35 @@ function .loadprev(*)
     {
       sp_sc_flow_if number cvar flag_capped_$~slot == val 0
       {
-        sp_sc_flow_if text cvar btrack_loadprev_pos_$~slot != val ""
+        sp_sc_cvar_copy ~num btrack_prev_pos_num_$~slot
+        sp_sc_flow_if number cvar ~num == val 6
         {
-          sp_sc_cvar_split ~data "!" btrack_loadprev_pos_$~slot
-          sp_sc_cvar_list ~data_*
-          set ~loadpos #~data_2
-          sp_sc_flow_if number cvar ~data_0 > val 1
+          set btrack_prev_pos_num_$~slot 1
+        }
+        sp_sc_cvar_sset ~cvar btrack_loadprev_pos_$~num _$~slot
+        sp_sc_cvar_copy ~tmp $~cvar
+        sp_sc_cvar_list ~tmp
+        sp_sc_flow_if text cvar ~tmp != val ""
+        {
+          sp_sc_cvar_split ~tmp ":" $~cvar
+          sp_sc_cvar_list ~tmp*
+          //reset velocity
+          sp_sc_func_exec zeroVel #~slot
+          //teleport player
+          sp_sc_func_exec setOrigin #~slot #~tmp_1 #~tmp_2 #~tmp_3
+          add btrack_loads_$~slot 1
+          //STRING PACKAGE 58
+          //sp_sv_print_sp_client #~slot 58
+          sp_sc_func_exec bt_sound_load $~slot
+
+          sp_sc_cvar_copy ~loads btrack_loads_$~slot 
+          sp_sc_cvar_sset ~msg "%03Position Loaded! %06~%02[%03" #~loads "%02]%06~"
+          sp_sc_cvar_unescape ~msg ~msg
+          sp_sv_print_client $~slot #~msg
+          add btrack_prev_pos_num_$~slot 1
+          sp_sc_flow_if number cvar btrack_prev_pos_num_$~slot == val 6
           {
-            sp_sc_cvar_split ~tmp ":" ~loadpos
-            sp_sc_func_exec setOrigin #~slot #~tmp_1 #~tmp_2 #~tmp_3
-            //reset viewangles (yaw only (?))
-            //sp_sc_cvar_list ~tmp_4 ~tmp_5
-            //sp_sc_func_exec setAngles #~slot #~tmp_4 #~tmp_5
-            add btrack_loads_$~slot 1
-            //STRING PACKAGE 58
-            sp_sv_print_sp_client #~slot 58
-            sp_sc_func_exec bt_sound_load $~slot
-            //bt_entSoundPlay(~slot,~sound,~atten,~clbool,~vol)
-            set ~str ""
-            set ~counter 2
-            sp_sc_flow_while number cvar ~counter <= val #~data_0
-            {
-              sp_sc_cvar_copy ~tmp ~data_$~counter 
-              sp_sc_cvar_append ~str #~tmp "!"
-              add ~counter 1
-            }
-            sp_sc_cvar_append ~str #~data_1 "!"
-            set btrack_loadprev_pos_$~slot #~str
-            add btrack_loads_$~slot 1
-            sp_sc_cvar_copy ~loads btrack_loads_$~slot 
-            sset ~msg "Total loads:" #~loads
-            sp_sv_print_client $~slot #~msg
+            set btrack_prev_pos_num_$~slot 1
           }
         }
       }
@@ -433,8 +496,10 @@ function pydb_bt_broadcast_new_rank(pydb_name,pydb_new_rank,pydb_slot,pydb_broad
   sp_sc_flow_if number cvar pydb_broadcast == val 1
   {
     //~temp cvars are deleted when rcon status packet calls this function
-    sset msg $pydb_name is now number $pydb_new_rank
-    echo #msg
+    sp_sc_cvar_unhex pydb_name pydb_name
+    sp_sc_cvar_sset ~msg #pydb_name " %03 is now ranked %06~%03[%02" #pydb_new_rank "%03]%06~"
+    sp_sc_cvar_unescape ~msg ~msg
+    sp_sv_print_broadcast #~msg
   }
   set pydb_bt_rank_$pydb_slot $pydb_new_rank
 }
@@ -473,8 +538,12 @@ function flagcap(*)
       set ~new $~frames
       sp_sc_cvar_copy ~old pydb_bt_time_$~slot
       add ~old -$~new
-      sset ~msg "<name> beat his old time by" $~old "frames" "Time:" #~frames
-      say #~msg
+      sp_sv_info_client $~slot
+      set ~name #_sp_sv_info_client_name
+      sp_sc_cvar_sset ~msg #~name " %03beat their old time by %06~%03[%02" $~old "%03]%06~%03 " "Time:%06~%03[%02" #~frames "%03]%06~"
+      sp_sc_cvar_unescape ~msg ~msg
+      sp_sv_print_broadcast #~msg 
+      set pydb_bt_time_$~slot #~frames
     }
     
     sp_sc_cvar_copy ~loads btrack_loads_$~slot
@@ -600,6 +669,23 @@ function sound_play_exclude(~slot, ~sound)
         sp_sc_func_exec entSoundPlay #~counter #~sound 0 1 1
       }
     }
+    add ~counter 1
+  }
+}
+
+function sf_remove_sound(~sound)
+{
+  sp_sc_cvar_sset ~cmd "sp_sc_file_find ~dir sound/" $~sound " pak filesystem file recursive"
+  $~cmd
+  sp_sc_cvar_list ~cmd
+  set ~counter 1
+  sp_sc_flow_while number cvar ~counter <= cvar ~dir_0
+  {
+    sp_sc_cvar_copy ~rem ~dir_$~counter
+    sp_sc_cvar_substr ~sfile ~rem 6 999999
+    sset ~msg "Removing:" #~sfile
+    echo #~msg
+    sf_sv_sound_remove #~sfile
     add ~counter 1
   }
 }
