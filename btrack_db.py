@@ -150,7 +150,12 @@ def lap_completed(data):
         #still need to update top10
         create_top_10()
     #set new values for players .rank info
-    player_joined(DoubleLinkedThing[str(name)])
+    #name and slot
+    tmpDict = {
+    "name":str(name),
+    "slot":slot
+    }
+    player_joined(tmpDict)
 
 #each map has a seperate list
 #save old one
