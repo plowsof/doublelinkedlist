@@ -27,7 +27,6 @@ function bt_sound_disconnect(*)
 
 function .rank(*)
 {
-  sp_sc_cvar_list ~*
   sp_sc_flow_if number cvar ~0 == val 1
   {
     set ~slot $~1
@@ -45,21 +44,22 @@ function .rank(*)
     sp_sc_cvar_copy ~saves pydb_bt_saves_$~slot  
     sp_sc_cvar_copy ~loads pydb_bt_loads_$~slot  
     sp_sc_cvar_copy ~seen pydb_bt_seen_$~slot
-    sp_sc_cvar_sset ~msg "Map: " #_sp_sv_info_map_current
+    sp_sc_cvar_sset ~msg   "%06~%03Map%06~%01      " #_sp_sv_info_map_current
     sp_sc_cvar_append_newline ~msg 
-    sp_sc_cvar_append ~msg "Name: " #_sp_sv_info_client_name
+    sp_sc_cvar_append ~msg "%06~%03Name%06~%01     " #_sp_sv_info_client_name
     sp_sc_cvar_append_newline ~msg
-    sp_sc_cvar_append ~msg "Rank: " #~rank
+    sp_sc_cvar_append ~msg "%06~%03Rank%06~%01     " #~rank
     sp_sc_cvar_append_newline ~msg
-    sp_sc_cvar_append ~msg "Time: " #~time
+    sp_sc_cvar_append ~msg "%06~%03Time%06~%01     " #~time
     sp_sc_cvar_append_newline ~msg
-    sp_sc_cvar_append ~msg "Total: " #~total
+    sp_sc_cvar_append ~msg "%06~%03Total%06~%01    " #~total
     sp_sc_cvar_append_newline ~msg
-    sp_sc_cvar_append ~msg "Saves: " #~saves
+    sp_sc_cvar_append ~msg "%06~%03Saves%06~%01    " #~saves
     sp_sc_cvar_append_newline ~msg
-    sp_sc_cvar_append ~msg "Loads: " #~loads
+    sp_sc_cvar_append ~msg "%06~%03Loads%06~%01    " #~loads
     sp_sc_cvar_append_newline ~msg
-    sp_sc_cvar_append ~msg "1st Seen: " #~seen
+    sp_sc_cvar_append ~msg "%06~%031st Seen%06~%01 " #~seen
+    sp_sc_cvar_unescape ~msg ~msg
     sp_sv_print_client $~1 #~msg
   }
   else
@@ -87,10 +87,8 @@ function .top10(~slot)
       sp_sc_cvar_split ~split "\" ~data
       set ~name $~split_1;sp_sc_cvar_unhex ~name ~name;sp_sc_cvar_append ~name #~spaces;
       echo "error?"
-      sp_sc_cvar_list ~split_2
       set ~time $~split_2;sp_sc_cvar_append ~time #~spaces
       echo "time"
-      sp_sc_cvar_list ~time
       set ~saves $~split_3;sp_sc_cvar_append ~saves #~spaces
       set ~loads $~split_4;sp_sc_cvar_append ~loads #~spaces
       set ~last_seen $~split_5
@@ -105,21 +103,44 @@ function .top10(~slot)
   }
   set ~line_$~line_0 "%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a%9a"
   set ~counter 1
+  set ~newline_after_chunk 1
   sset ~msg ""
   sp_sc_flow_while number cvar ~counter <= val $~line_0
   {
     sp_sc_cvar_copy ~l ~line_$~counter
     sp_sc_cvar_append ~msg #~l
-    sp_sc_cvar_append_newline ~msg
+    sp_sc_flow_if number cvar ~newline_after_chunk != val 3
+    {
+      sp_sc_cvar_append_newline ~msg
+      add ~newline_after_chunk 1
+    }
+    else
+    {
+      set ~newline_after_chunk 1
+    }
+    
     add ~counter 1
+    
   }
   sp_sc_cvar_unescape ~msg ~msg
-  sp_sv_print_broadcast #~msg
+  //i dont know the max cvar length :-$
+  set ~chunk 113
+  set ~begin 0
+  sp_sc_cvar_len ~len ~msg
+  sp_sc_cvar_list ~len
+  sp_sc_flow_while number cvar ~begin < val #~len
+  {
+    sp_sc_cvar_list ~chunk
+    sp_sc_cvar_list ~begin
+    sp_sc_cvar_substr ~part ~msg $~begin #~chunk
+    add ~begin $~chunk
+    sp_sv_print_broadcast #~part
+  }
 }
+
 function bt_flag_state(~cvar)
 {
   // r00 d h 
-  sp_sc_cvar_list $~cvar
   sp_sc_cvar_substr ~r $~cvar 0 1
   sp_sc_flow_if text cvar ~r == val "r"
   {
@@ -146,6 +167,12 @@ function bt_flagtake(~slot)
 function stopwatch(~slot)
 {
   echo "stopwatch"
+  sp_sc_flow_if number cvar btrack_saves_$~slot == val 0
+  {
+    sset ~msg "%03Type/bind %04.savepos%03 to save your position.%0a%04.loadpos %03 to load it%0a%04.loadprev %03 to load previous 4"
+    sp_sc_cvar_unescape ~msg ~msg
+    sp_sv_print_client $~slot #~msg
+  }
   sp_sc_func_exec on_spawn_security_check $~slot
   sp_sc_flow_if number cvar btrack_start_frame_$~slot == val ""
   {
@@ -154,6 +181,7 @@ function stopwatch(~slot)
   }
   sp_sc_flow_if number cvar flag_capped_$~slot == val 1
   {
+    echo "flag capped 1 reset"
     sp_sc_func_exec set_cvars $~slot
     
     sp_sv_info_frames
@@ -334,8 +362,9 @@ function on_spawn_security_check(~slot)
 {
   //swap teams zero cvars <prevent swap team, load pos to enemy spawn>
   sp_sv_info_client $~slot
-  sp_sc_flow_if text cvar _sp_sv_info_client_team != cvar btrack_team_$~slot
+  sp_sc_flow_if number cvar _sp_sv_info_client_team != cvar btrack_team_$~slot
   {
+    echo "failed security check of team"
     sp_sc_func_exec set_cvars $~slot
   }
   //also check names 
@@ -422,7 +451,6 @@ function .savepos(*)
     //maybe to stop spamming save sound at end of map
     echo "map ended"
   }
-  sp_sc_cvar_list btrack_loadprev_pos_?_0
 }
 
 //----------------------------------------
@@ -442,7 +470,6 @@ function .loadpos(*)
           //refuse to load if nothing saved
           //teleport to saved x y z
           sp_sc_cvar_split ~tmp ":" btrack_loadprev_pos_1_$~slot
-          sp_sc_cvar_list ~tmp*
           //reset velocity
           sp_sc_func_exec zeroVel #~slot
           //teleport player
@@ -489,35 +516,43 @@ function .loadprev(*)
       sp_sc_flow_if number cvar flag_capped_$~slot == val 0
       {
         sp_sc_cvar_copy ~num btrack_prev_pos_num_$~slot
+        sp_sc_flow_if number cvar ~num == val 1
+        {
+          set btrack_prev_pos_num_$~slot 2;set ~num 2
+        }
         sp_sc_flow_if number cvar ~num == val 6
         {
-          set btrack_prev_pos_num_$~slot 1
+          set btrack_prev_pos_num_$~slot 2;set ~num 2
         }
+        sp_sc_cvar_list ~num
         sp_sc_cvar_sset ~cvar btrack_loadprev_pos_$~num _$~slot
         sp_sc_cvar_copy ~tmp $~cvar
-        sp_sc_cvar_list ~tmp
-        sp_sc_flow_if text cvar ~tmp != val ""
+        sp_sc_flow_if text cvar ~tmp == val ""
         {
-          sp_sc_cvar_split ~tmp ":" $~cvar
-          sp_sc_cvar_list ~tmp*
-          //reset velocity
-          sp_sc_func_exec zeroVel #~slot
-          //teleport player
-          sp_sc_func_exec setOrigin #~slot #~tmp_1 #~tmp_2 #~tmp_3
-          add btrack_loads_$~slot 1
-          //STRING PACKAGE 58
-          //sp_sv_print_sp_client #~slot 58
-          sp_sc_func_exec bt_sound_load $~slot
+          set btrack_prev_pos_num_$~slot 2;set ~num 2
+        }
+        sp_sc_cvar_list ~num
+        sp_sc_cvar_sset ~cvar btrack_loadprev_pos_$~num _$~slot
+        sp_sc_cvar_copy ~tmp $~cvar
+        sp_sc_cvar_split ~tmp ":" $~cvar
+        //reset velocity
+        sp_sc_func_exec zeroVel #~slot
+        //teleport player
+        sp_sc_func_exec setOrigin #~slot #~tmp_1 #~tmp_2 #~tmp_3
+        //sp_sc_func_exec setAngles #~slot #~tmp_4 #~tmp_5
+        add btrack_loads_$~slot 1
+        //STRING PACKAGE 58
+        //sp_sv_print_sp_client #~slot 58
+        sp_sc_func_exec bt_sound_load $~slot
 
-          sp_sc_cvar_copy ~loads btrack_loads_$~slot 
-          sp_sc_cvar_sset ~msg "%03Position Loaded! %06~%02[%03" #~loads "%02]%06~"
-          sp_sc_cvar_unescape ~msg ~msg
-          sp_sv_print_client $~slot #~msg
-          add btrack_prev_pos_num_$~slot 1
-          sp_sc_flow_if number cvar btrack_prev_pos_num_$~slot == val 6
-          {
-            set btrack_prev_pos_num_$~slot 1
-          }
+        sp_sc_cvar_copy ~loads btrack_loads_$~slot 
+        sp_sc_cvar_sset ~msg "%03Position Loaded! %06~%02[%03" #~loads "%02]%06~"
+        sp_sc_cvar_unescape ~msg ~msg
+        sp_sv_print_client $~slot #~msg
+        add btrack_prev_pos_num_$~slot 1
+        sp_sc_flow_if number cvar btrack_prev_pos_num_$~slot == val 6
+        {
+          set btrack_prev_pos_num_$~slot 2
         }
       }
     }
@@ -537,7 +572,6 @@ function pydb_bt_broadcast_new_rank(pydb_name,pydb_new_rank,pydb_slot,pydb_broad
 }
 function pydb_bt_set_begin_cvars(bt_slot,bt_time,bt_rank,bt_saves,bt_loads,bt_total,bt_seen)
 {
-  say "begin"
   //saves + loads that you did on your best time run
   set pydb_bt_rank_$bt_slot #bt_rank
   set pydb_bt_time_$bt_slot #bt_time
@@ -596,14 +630,12 @@ function flagcap(*)
     {
       set ~saves 0
     }
-    sp_sc_cvar_list ~name ~frames ~slot ~loads ~saves
     sp_sc_func_exec bt_timed_event_completed #~name #~frames #~slot #~loads #~saves
   }
 }
 
 function bt_timed_event_completed(~name,~time,~slot,~loads,~saves)
 {
-  sp_sc_cvar_list ~saves ~loads
   sp_sc_cvar_sset ~line [%22\\bt_db\\%22,%22bt_finish%22,%22 $~name %22,%22 $~time %22,%22 $~slot %22,%22 $~loads %22,%22 $~saves %22]
   sp_sc_cvar_unescape ~line ~line
   echo $~line
@@ -641,7 +673,6 @@ function setOrigin(~slot,~x,~y,~z)
   sf_sv_player_ent ~ent #~slot
   sf_sv_vector_set ~vec $~x $~y $~z
   sf_sv_ent_field_set #~ent origin ~vec
-  sp_sc_cvar_list ~x ~y ~z
 }
 
 function getOrigin(~slot)
@@ -651,7 +682,6 @@ function getOrigin(~slot)
   set GLOBAL_get_origin_x #~out_1
   set GLOBAL_get_origin_y #~out_2
   set GLOBAL_get_origin_z #~out_3
-  sp_sc_cvar_list GLOBAL_get*
 }
 
 function getAngles(~slot)
@@ -717,7 +747,6 @@ function sf_remove_sound(~sound)
 {
   sp_sc_cvar_sset ~cmd "sp_sc_file_find ~dir sound/" $~sound " pak filesystem file recursive"
   $~cmd
-  sp_sc_cvar_list ~cmd
   set ~counter 1
   sp_sc_flow_while number cvar ~counter <= cvar ~dir_0
   {
@@ -728,4 +757,22 @@ function sf_remove_sound(~sound)
     sf_sv_sound_remove #~sfile
     add ~counter 1
   }
+}
+
+
+function -setAngles(*) 
+{
+  set ~slot #~1
+  echo "Set angles"
+  set ~x #~2
+  set ~y #~3
+  sf_sv_player_ent ~who #~slot
+  sf_sv_vector_set ~desired #~x #~y 0
+  sf_sv_ent_field_get ~resp_ang #~who respawn_angles
+  sp_sc_cvar_math_sub ~desired_1 ~resp_ang_1
+  sp_sc_cvar_math_sub ~desired_2 ~resp_ang_2
+  echo "lol"
+  sp_sc_cvar_math_mul ~desired_1 182.04
+  sp_sc_cvar_math_mul ~desired_2 182.04
+  sf_sv_ent_field_set #~who delta_angles ~desired
 }
