@@ -163,6 +163,10 @@ def set_map(themap):
   global DoubleLinkedThing
   global mapname
   save_list()
+  python_db = os.path.join(os.getcwd(),"python-db","btrack","mapname",mapname)
+  if len(DoubleLinkedThing) >= 2:
+    with open(python_db, 'wb+') as f:
+      pickle.dump(DoubleLinkedThing,f)
   mapname = themap
   python_db = os.path.join(os.getcwd(),"python-db","btrack","mapname",mapname)
   if os.path.isfile(python_db):
