@@ -16,8 +16,38 @@ function btrack_init()
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_spawn "stopwatch"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_ctf_flag_capture "flagcap"
   sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_map_end "mapend"
+  sp_sc_func_exec spf_sc_list_add_func _sp_sv_on_client_die "bt_remove_trash"
+  //sf_sv_sound_override "enemy/dth/*" "ignore.wav" ""
+  //sf_sv_sound_override "impact/gore/*" "ignore.wav" ""
+  //sf_sv_sound_override "impact/player/*" "ignore.wav" ""
 }
 
+
+function bt_remove_trash(*)
+{
+  echo "hello"
+}
+
+function bt_remove_trash_1()
+{
+  sf_sv_ent_find ~crap 436 "noclass"
+  set ~counter 1
+  sp_sc_flow_while number cvar ~counter <= val #~crap_0
+  {
+    sp_sc_cvar_copy ~ent ~crap_$~counter
+    sf_sv_ent_remove #~ent
+    add ~counter 1
+  }
+  sf_sv_ent_find ~crap 436 "item_weapon_pistol"
+  set ~counter 1
+  sp_sc_flow_while number cvar ~counter <= val #~crap_0
+  {
+    sp_sc_cvar_copy ~ent ~crap_$~counter
+    sf_sv_ent_remove #~ent
+    add ~counter 1
+  }
+  sp_sc_timer 250 "sp_sc_func_exec bt_remove_trash_1"
+}
 function bt_sound_disconnect(*)
 {
   //play disc sound
@@ -179,7 +209,7 @@ function stopwatch(~slot)
     sp_sv_info_frames
     set btrack_start_frame_$~slot #_sp_sv_info_frames
   }
-  sp_sc_flow_if number cvar flag_capped_$~slot == val 1
+  sp_sc_flow_if number cvar flag_taken_$~slot == val 1
   {
     echo "flag capped 1 reset"
     sp_sc_func_exec set_cvars $~slot
@@ -235,7 +265,6 @@ function set_cvars(~slot)
   zero btrack_loadprev_pos_3_$~slot
   zero btrack_loadprev_pos_4_$~slot
   zero btrack_loadprev_pos_5_$~slot
-  set btrack_team_$~slot #_sp_sv_info_client_team
   sf_sv_player_ent ~ent $~slot
   set bt_ent_slot_$~slot #~ent
   set btrack_team_$~slot #_sp_sv_info_client_team
@@ -261,7 +290,7 @@ function bt_player_join(*)
         //sp_sc_func_exec reset_cvars $~slot
         //echo %22\\join\\
         sp_sv_info_client $~1
-        set btrack_team_$~1 _sp_sv_info_client_team
+        set btrack_team_$~1 #_sp_sv_info_client_team
         set ~name #_sp_sv_info_client_name
         set pydb_bt_name_join_$~1 #~name
         sp_sc_func_exec pydb_set_name #~name #~1 "bt_player_join"
@@ -298,9 +327,7 @@ function bt_map_begin()
   sp_sc_func_exec bt_register_sounds
   sp_sc_func_exec bt_make_top10
   //override currently broken
-  sf_sv_sound_override "enemy/dth/*" "null.wav" ""
-  sf_sv_sound_override "impact/gore/*" "null.wav" ""
-  sf_sv_sound_override "impact/player/*" "null.wav" ""
+
   set btrack_mapend 0
 }
 function .rems(~slot)
